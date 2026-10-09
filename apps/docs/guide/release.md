@@ -56,15 +56,15 @@ pnpm ready
 
 根目录脚本 `ci` 也执行完整验证，但在 pnpm 12 中，应使用 `pnpm run ci` 调用项目脚本；`pnpm ci` 是 pnpm 的内置安装命令。`pnpm ready` 已显式调用正确的项目脚本。
 
-## GitHub 手动发布
+## GitHub 自动发布
 
-`.github/workflows/release.yml` 使用手动触发，仅允许在 `main` 分支且仓库变量 `RELEASE_ENABLED` 为字符串 `true` 时运行。
+`.github/workflows/release.yml` 在推送到 `main` 时自动运行，也支持在 Actions 页面手动触发，仅在 `main` 分支执行发布。
 
 配置具有目标包发布权限的 `NPM_TOKEN` secret 后：
 
 1. 工作流安装依赖并执行 `pnpm ready`。
-2. 有待消费的 changeset 时，Changesets Action 创建或更新版本 PR。
-3. 版本 PR 合并后，再次手动运行工作流发布新版本。
+2. 有待消费的 changeset 时，Changesets Action 自动创建或更新版本 PR。
+3. 版本 PR 合并后推送触发工作流，自动发布新版本到 npm。
 
 没有 `NPM_TOKEN` 时，工作流只提供创建版本 PR 的步骤。完成首次发布所需的仓库、账户与权限配置后，再启用工作流；文档没有填写尚未确定的远程仓库地址。
 

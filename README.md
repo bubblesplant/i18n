@@ -111,6 +111,6 @@ pnpm release
 
 实际仓库地址确定后，填写各包的 `repository`、`homepage` 和 `bugs`。此仓库未预填模板仓库地址；这些字段不是 npm 发布必需项。
 
-CI 在 Windows 和 Linux 上执行 `pnpm ready`。Release 工作流从 `main` 手动触发，需要仓库变量 `RELEASE_ENABLED=true`；配置 `NPM_TOKEN` 后可发布，未配置时只运行版本 PR 流程。文档工作流手动部署 GitHub Pages，通过 `DOCS_BASE` 设置部署子路径。
+CI 在 Windows 和 Linux 上执行 `pnpm ready`。Release 工作流在推送到 `main` 时自动运行（也支持手动触发）；配置 `NPM_TOKEN` 后可发布，未配置时只运行版本 PR 流程。文档工作流手动部署 GitHub Pages，通过 `DOCS_BASE` 设置部署子路径。
 
 详见 [版本与发布](apps/docs/guide/release.md) 和 [工作区约定](apps/docs/guide/workspace.md)。
