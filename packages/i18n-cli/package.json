@@ -1,6 +1,6 @@
 {
   "name": "@bubblesjs/i18n-cli",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "扫描静态翻译调用并安全同步 JSON 语言包的命令行工具",
   "license": "MIT",
   "bin": {
