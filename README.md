@@ -9,7 +9,7 @@
 | `@bubblesjs/i18n-vue`   | Vue 3 Provider 与响应式 Composables              |
 | `@bubblesjs/i18n-cli`   | 扫描静态翻译调用，检查和同步 JSON 语言包         |
 
-根项目、`docs`、`playground` 和 `@bubblesjs/utils` 均保持私有，不发布到 npm。原模板中的包保留原位，本仓库单独维护迁入的版本。
+根项目、`docs` 和 `playground` 均保持私有，不发布到 npm。原模板中的包保留原位，本仓库单独维护迁入的版本。
 
 ## 使用
 
@@ -85,7 +85,6 @@ packages/
   i18n-react/           @bubblesjs/i18n-react
   i18n-vue/             @bubblesjs/i18n-vue
   i18n-cli/             @bubblesjs/i18n-cli
-  utils/                私有共享工具
 scripts/                本地产物及隔离 npm 安装验证
 tsconfig/               共享 TypeScript 配置
 .changeset/             四个公开包的统一版本配置

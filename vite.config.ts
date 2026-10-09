@@ -20,7 +20,6 @@ export default defineConfig({
       "**/.vitepress/cache/**",
       "**/.vitepress/dist/**",
       "**/*.vue",
-      "packages/utils/tests/consumer/**",
     ],
     jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
     rules: { "vite-plus/prefer-vite-plus-imports": "error" },

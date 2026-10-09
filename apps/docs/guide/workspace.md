@@ -11,13 +11,12 @@ packages/
   i18n-react/       React 适配层
   i18n-vue/         Vue 适配层
   i18n-cli/         JSON 词条同步 CLI
-  utils/            私有工具包示例
 scripts/            包产物与发布消费验证
 tsconfig/           共享 TypeScript 配置
 .changeset/         版本变更记录
 ```
 
-`apps/*` 和 `packages/*` 由 `pnpm-workspace.yaml` 纳入工作区。四个 `@bubblesjs/i18n-*` 包公开发布，初始版本为 `0.0.1`；根项目、docs、playground 和 utils 均为私有项目。`tsconfig/` 是普通配置目录，没有包清单，不参与 npm 发布。
+`apps/*` 和 `packages/*` 由 `pnpm-workspace.yaml` 纳入工作区。四个 `@bubblesjs/i18n-*` 包公开发布，初始版本为 `0.0.1`；根项目、docs 和 playground 均为私有项目。`tsconfig/` 是普通配置目录，没有包清单，不参与 npm 发布。
 
 包名写在各自的 `package.json` 中。修改根项目名称不会改变子包 scope；新增公开包应显式使用 `@bubblesjs/<包名>`。私有应用可以保留 `docs`、`playground` 名称。
 
@@ -52,7 +51,7 @@ import { I18nProvider } from "@bubblesjs/i18n-react";
 
 适配包的单元测试和开发类型检查使用 core 源码映射，因此全新检出可以先执行类型检查与测试。实际发布消费验证在隔离目录安装 tarball，使用 dist 入口，避免源码别名掩盖问题。
 
-`apps/docs` 独立构建，不运行时依赖 utils 或 i18n 包。文档示例是静态代码块，展示使用者应写的代码。
+`apps/docs` 独立构建，没有 i18n 包的运行时依赖。文档示例是静态代码块，展示使用者应写的代码。
 
 ## 测试与验证
 

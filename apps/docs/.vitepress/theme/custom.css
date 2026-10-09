@@ -153,6 +153,7 @@
   .bubbles-docs .VPNavBar.has-sidebar .container > .title {
     position: static;
     width: auto;
+    max-width: none;
     padding: 0;
   }
 
@@ -167,6 +168,9 @@
   }
 
   .bubbles-docs .VPNavBarTitle.has-sidebar .title {
+    width: auto;
+    min-width: 0;
+    max-width: none;
     border-bottom: 0;
   }
 

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { clamp } from "@bubblesjs/utils";
 import { computed, ref } from "vue";
 
 const inputValue = ref<number | string>(128);
@@ -28,7 +27,7 @@ const error = computed(() => {
 const result = computed(() =>
   error.value
     ? null
-    : clamp(Number(inputValue.value), Number(minimum.value), Number(maximum.value)),
+    : Math.min(Number(maximum.value), Math.max(Number(minimum.value), Number(inputValue.value))),
 );
 
 const scale = computed(() => {
@@ -86,7 +85,7 @@ function selectPreset(value: number) {
         <p class="eyebrow">你的下一个项目，从这里开始</p>
         <h1 id="page-title">应用各司其职，<br />代码共同生长。</h1>
         <p class="intro-copy">
-          在应用中探索，在共享包中沉淀。这个工作台展示了它们如何连接，也为你的下一步留好了位置。
+          在应用中验证交互，在独立包中维护可复用能力。这个工作台提供本地数值示例，文档记录国际化包的使用约定。
         </p>
         <a class="text-link" href="#workspace">查看工作区分工 <span aria-hidden="true">↗</span></a>
       </section>
@@ -94,12 +93,14 @@ function selectPreset(value: number) {
       <section class="demo-panel" aria-labelledby="demo-title">
         <div class="panel-heading">
           <div>
-            <p class="eyebrow">共享包 · 即时演示</p>
+            <p class="eyebrow">Vue · 本地交互演示</p>
             <h2 id="demo-title">把数值留在区间内。</h2>
           </div>
-          <code class="package-tag">@bubblesjs/utils</code>
+          <code class="package-tag">Math.min / Math.max</code>
         </div>
-        <p class="demo-description">调整数值与上下限，看看 <code>clamp()</code> 如何处理边界。</p>
+        <p class="demo-description">
+          调整数值与上下限，看看 <code>Math.min()</code> 与 <code>Math.max()</code> 如何约束边界。
+        </p>
 
         <div class="presets" role="group" aria-label="选择示例数值">
           <button
@@ -203,29 +204,30 @@ function selectPreset(value: number) {
         </div>
         <div class="code-line">
           <code
-            >clamp({{ inputValue === "" ? "value" : inputValue }},
-            {{ minimum === "" ? "min" : minimum }}, {{ maximum === "" ? "max" : maximum }})</code
-          ><span>来自共享包源码</span>
+            >Math.min({{ maximum === "" ? "max" : maximum }}, Math.max({{
+              minimum === "" ? "min" : minimum
+            }}, {{ inputValue === "" ? "value" : inputValue }}))</code
+          ><span>本地数值运算</span>
         </div>
       </section>
 
       <section id="workspace" class="workspace-section" aria-labelledby="workspace-title">
         <div class="section-heading">
           <h2 id="workspace-title">一个仓库，清楚的分工。</h2>
-          <p>应用消费包，配置统一管理。</p>
+          <p>应用独立运行，包与配置各有边界。</p>
         </div>
         <div class="workspace-grid">
           <article class="workspace-item">
             <span class="folder-label">apps/</span>
             <h3>让想法可见</h3>
-            <p>Playground 用来交互演示，Docs 用来记录约定。应用通过工作区依赖连接共享包。</p>
+            <p>Playground 展示本地交互，Docs 说明国际化 API。两个应用可独立开发与构建。</p>
             <code>playground · docs</code>
           </article>
           <article class="workspace-item">
             <span class="folder-label">packages/</span>
             <h3>让代码可复用</h3>
-            <p>把通用逻辑放进独立包，按需构建、测试与发布。上方的数值示例就来自这里。</p>
-            <code>@bubblesjs/utils</code>
+            <p>核心翻译、React / Vue 适配和词条 CLI 分别维护，按需构建、测试与发布。</p>
+            <code>i18n-core · i18n-react · i18n-vue · i18n-cli</code>
           </article>
           <article class="workspace-item">
             <span class="folder-label">tsconfig/</span>
@@ -239,8 +241,8 @@ function selectPreset(value: number) {
       <section class="next-step" aria-labelledby="next-title">
         <div>
           <p class="eyebrow">接下来</p>
-          <h2 id="next-title">从一个共享函数开始。</h2>
-          <p>编辑 <code>packages/utils/src/index.ts</code>，回到这里查看变化。</p>
+          <h2 id="next-title">从一个本地交互开始。</h2>
+          <p>编辑 <code>apps/playground/src/App.vue</code>，查看数值演示的变化。</p>
         </div>
         <div class="command-list">
           <div><span>运行工作台</span><code>pnpm dev</code></div>

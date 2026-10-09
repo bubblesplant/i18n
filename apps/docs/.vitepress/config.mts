@@ -1,21 +1,52 @@
-import { defineConfig } from "vitepress";
+import { fileURLToPath, URL } from "node:url";
+import { defineConfig, postcssIsolateStyles } from "vitepress";
 
 const basePath = (process.env.DOCS_BASE ?? "/").trim().replace(/^\/+|\/+$/g, "");
+const base = basePath ? `/${basePath}/` : "/";
 
 export default defineConfig({
   title: "BubblesJS i18n",
   description: "轻量国际化核心、React 与 Vue 适配层，以及 JSON 词条维护 CLI",
   lang: "zh-CN",
-  base: basePath ? `/${basePath}/` : "/",
+  base,
   cleanUrls: true,
   lastUpdated: true,
+  head: [
+    ["link", { rel: "icon", href: `${base}mark.svg`, type: "image/svg+xml" }],
+    ["meta", { name: "theme-color", content: "#f6f7ff" }],
+  ],
   markdown: {
     theme: { light: "github-light", dark: "github-dark" },
   },
+  vite: {
+    css: {
+      postcss: {
+        plugins: [postcssIsolateStyles({ includeFiles: [/vp-doc\.css$/] })],
+      },
+    },
+    resolve: {
+      alias: [
+        {
+          find: /^.*\/VPDocAsideOutline\.vue$/,
+          replacement: fileURLToPath(
+            new URL("./theme/components/BubblesOutline.vue", import.meta.url),
+          ),
+        },
+      ],
+    },
+  },
   themeConfig: {
+    logo: { src: "/mark.svg", alt: "BubblesJS i18n" },
     nav: [
       { text: "快速开始", link: "/guide/getting-started" },
       { text: "核心容器", link: "/guide/core" },
+      {
+        text: "框架适配",
+        items: [
+          { text: "React", link: "/guide/react" },
+          { text: "Vue", link: "/guide/vue" },
+        ],
+      },
       { text: "词条 CLI", link: "/guide/cli" },
       { text: "版本与发布", link: "/guide/release" },
     ],

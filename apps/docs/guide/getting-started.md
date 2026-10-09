@@ -86,4 +86,4 @@ pnpm ready
 | `pnpm changeset`       | 记录后续发布的包变更                                     |
 | `pnpm release`         | 验证完成后实际发布 npm                                   |
 
-需要本地交互时，`pnpm dev` 启动 Playground，`pnpm docs:dev` 启动文档；两个命令会启动持续运行的开发服务。仓库的私有应用和 utils 不参与 npm 发布，详见[工作区约定](./workspace)。版本维护与发布流程见[版本与发布](./release)。
+需要本地交互时，`pnpm dev` 启动 Playground，`pnpm docs:dev` 启动文档；两个命令会启动持续运行的开发服务。仓库的私有应用不参与 npm 发布，详见[工作区约定](./workspace)。版本维护与发布流程见[版本与发布](./release)。

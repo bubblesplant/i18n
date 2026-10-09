@@ -7,7 +7,7 @@
 - `@bubblesjs/i18n-vue`
 - `@bubblesjs/i18n-cli`
 
-根项目、docs、playground 和 utils 设置为私有项目，跳过 npm 发布。以下命令说明发布流程；当前工作只准备包、文档与测试，不表示已经发布。
+根项目、docs 和 playground 设置为私有项目，跳过 npm 发布。以下命令说明发布流程；当前工作只准备包、文档与测试，不表示已经发布。
 
 ## 首次发布
 
