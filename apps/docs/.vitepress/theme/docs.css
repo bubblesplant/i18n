@@ -1,0 +1,353 @@
+/* Adapted from antv-next-pro (MIT). */
+html {
+  scrollbar-gutter: stable;
+}
+
+.bubbles-docs {
+  --vp-layout-top-height: 0px;
+  --vp-sidebar-width: 260px;
+  --vp-code-block-bg: #f7f9fd;
+  --vp-code-tab-bg: #f0f3fa;
+  --bubbles-doc-rule: #e9edf4;
+  --bubbles-doc-active: linear-gradient(100deg, #eaf3ff, #f0edff);
+}
+
+.dark .bubbles-docs {
+  --vp-code-block-bg: #1b202d;
+  --vp-code-tab-bg: #202635;
+  --bubbles-doc-rule: #2b3243;
+  --bubbles-doc-active: linear-gradient(100deg, #243650, #302b49);
+}
+
+.bubbles-docs .VPNavBar,
+.bubbles-docs .VPNavBar.has-sidebar {
+  --vp-nav-col-offset: 0px;
+}
+.bubbles-docs .VPNavBar::before,
+.bubbles-docs .VPNavBar.has-local-nav::before {
+  background: var(--vp-c-bg);
+}
+.bubbles-docs .VPNavBar .divider::before {
+  display: none;
+}
+.bubbles-docs .VPNavBar .divider-line {
+  background: var(--bubbles-doc-rule);
+}
+.bubbles-docs .VPFlyout > .button[aria-expanded="false"] + .menu {
+  /* Hash changes update language links even while the flyout is closed. */
+  display: none;
+}
+.bubbles-docs .VPNavBarTitle.has-sidebar {
+  max-width: none;
+}
+.bubbles-docs .VPNavBarTitle .logo {
+  margin-right: 0;
+}
+.bubbles-docs .VPNavBarTitle .bubbles-docs-label {
+  flex-shrink: 0;
+  margin-left: 3px;
+  padding-left: 14px;
+  border-left: 1px solid var(--vp-c-divider);
+  color: var(--vp-c-text-2);
+  font-size: 13px;
+  font-weight: 450;
+  line-height: 20px;
+}
+
+.bubbles-docs .VPSidebar {
+  background: var(--vp-c-bg);
+  scrollbar-gutter: stable;
+}
+.bubbles-docs .VPSidebar .group {
+  width: 100%;
+  border-top: 0;
+  padding-top: 0;
+}
+.bubbles-docs .VPSidebar .group + .group {
+  margin-top: 20px;
+}
+.bubbles-docs .VPSidebarItem.level-0 {
+  padding-bottom: 0;
+}
+.bubbles-docs .VPSidebarItem.level-0 > .item {
+  align-items: center;
+  min-height: 32px;
+  margin-bottom: 7px;
+  padding: 0 10px;
+}
+.bubbles-docs .VPSidebarItem.level-0 > .item > .text {
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.015em;
+}
+.bubbles-docs .VPSidebarItem.level-1 {
+  margin-top: 3px;
+}
+.bubbles-docs .VPSidebarItem.level-1 > .item > .link {
+  position: relative;
+  min-height: 36px;
+  /* Reserve the active bubble's space so selecting long labels never reflows them. */
+  padding: 3px 25px 3px 12px;
+  border-radius: 8px;
+  transition: background-color 0.15s;
+}
+.bubbles-docs .VPSidebarItem.level-1 .text {
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  font-weight: 450;
+  line-height: 21px;
+}
+.bubbles-docs .VPSidebarItem.level-1 > .item > .link:hover {
+  background: var(--vp-c-bg-soft);
+}
+.bubbles-docs .VPSidebarItem.level-1.is-active > .item > .link {
+  background: var(--bubbles-doc-active);
+}
+.bubbles-docs .VPSidebarItem.level-1.is-active > .item > .link .text {
+  color: var(--vp-c-brand-1);
+}
+.bubbles-docs .VPSidebarItem.level-1 > .item > .link::after {
+  position: absolute;
+  top: calc(50% - 4px);
+  right: 12px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 25%, #e4eaff, #a29aef 60%, #777ee6);
+  box-shadow: 0 0 0 3px #a59cec14;
+  /* Keep the bubble's layout and stacking state stable when selection changes. */
+  visibility: hidden;
+  pointer-events: none;
+  content: "";
+}
+.bubbles-docs .VPSidebarItem.level-1.is-active > .item > .link::after {
+  visibility: visible;
+}
+.bubbles-docs .VPSidebarItem .caret {
+  width: 24px;
+  height: 28px;
+}
+.bubbles-docs .VPSidebarItem .caret-icon {
+  font-size: 14px;
+}
+.bubbles-docs .VPSidebar a:focus-visible,
+.bubbles-docs .bubbles-breadcrumb a:focus-visible {
+  outline: 2px solid var(--vp-c-brand-1);
+  outline-offset: 2px;
+}
+
+.bubbles-breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 22px;
+  color: var(--vp-c-text-2);
+  font-size: 12px;
+  line-height: 20px;
+}
+.bubbles-breadcrumb a {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--vp-c-brand-1);
+}
+.bubbles-breadcrumb svg {
+  width: 16px;
+  height: 16px;
+}
+.bubbles-breadcrumb > span[aria-hidden] {
+  color: var(--vp-c-divider);
+}
+.bubbles-docs .vp-doc h1 {
+  font-size: 38px;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.035em;
+}
+.bubbles-docs .vp-doc h1 + p {
+  margin: 18px 0 32px;
+  color: var(--vp-c-text-2);
+  font-size: 16px;
+  line-height: 1.9;
+}
+.bubbles-docs .vp-doc h2 {
+  margin-top: 38px;
+  padding-top: 0;
+  border-top: 0;
+  font-size: 23px;
+  font-weight: 650;
+  line-height: 1.5;
+  letter-spacing: -0.025em;
+  --vp-extra-scroll-margin: 24px;
+}
+.bubbles-docs .vp-doc h2 .header-anchor {
+  top: 0;
+}
+.bubbles-docs .vp-doc h3 {
+  font-size: 19px;
+  line-height: 1.5;
+}
+.bubbles-docs .vp-doc p:not(:where(.vp-raw, .vp-raw *)),
+.bubbles-docs .vp-doc li:not(:where(.vp-raw, .vp-raw *)) {
+  font-size: 15px;
+  line-height: 1.9;
+}
+.bubbles-docs .vp-doc li + li:not(:where(.vp-raw, .vp-raw *)) {
+  margin-top: 7px;
+}
+.bubbles-docs .vp-doc :not(pre) > code:not(:where(.vp-raw, .vp-raw *)) {
+  padding: 3px 6px;
+  border: 1px solid var(--bubbles-doc-rule);
+  border-radius: 5px;
+  background: var(--vp-c-bg-soft);
+  font-size: 0.86em;
+}
+.bubbles-docs .vp-doc div[class*="language-"] {
+  margin-inline: 0;
+  border-color: var(--bubbles-doc-rule);
+  border-radius: 12px;
+}
+.bubbles-docs .vp-code-group {
+  margin: 20px 0 24px;
+  overflow: hidden;
+  border: 1px solid var(--bubbles-doc-rule);
+  border-radius: 12px;
+}
+.bubbles-docs .vp-code-group .tabs {
+  gap: 5px;
+  margin-inline: 0;
+  padding: 7px 10px;
+  box-shadow: none;
+  border-bottom: 1px solid var(--bubbles-doc-rule);
+  border-radius: 0;
+}
+.bubbles-docs .vp-code-group .tabs label {
+  padding: 1px 14px;
+  border: 0;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 27px;
+}
+.bubbles-docs .vp-code-group .tabs label::after {
+  display: none;
+}
+.bubbles-docs .vp-code-group input:checked + label {
+  background: var(--vp-c-bg);
+  color: var(--vp-c-brand-1);
+  box-shadow: 0 1px 4px #253b6810;
+}
+.bubbles-docs .vp-code-group input:focus-visible + label {
+  outline: 2px solid var(--vp-c-brand-1);
+  outline-offset: 1px;
+}
+.bubbles-docs .vp-code-group div[class*="language-"] {
+  margin-bottom: 0;
+  border: 0;
+  border-radius: 0;
+}
+.bubbles-docs .vp-doc [class*="language-"] pre {
+  padding-block: 22px;
+}
+.bubbles-docs .VPDocFooter .pager-link {
+  border-color: var(--bubbles-doc-rule);
+  border-radius: 12px;
+}
+.bubbles-docs .VPDocFooter .pager-link:hover {
+  border-color: var(--vp-c-brand-1);
+  background: var(--vp-c-bg-soft);
+}
+
+@media (min-width: 960px) {
+  .bubbles-docs .VPSidebar {
+    top: var(--vp-nav-height);
+    left: max(0px, calc((100vw - var(--vp-layout-max-width)) / 2));
+    width: var(--vp-sidebar-width);
+    padding: 26px 18px 40px 24px;
+    border-right: 1px solid var(--bubbles-doc-rule);
+  }
+  .bubbles-docs .VPSidebar .curtain {
+    display: none;
+  }
+  .bubbles-docs .VPContent.has-sidebar {
+    padding-left: calc(max(0px, (100% - var(--vp-layout-max-width)) / 2) + var(--vp-sidebar-width));
+    padding-right: max(0px, calc((100% - var(--vp-layout-max-width)) / 2));
+  }
+  .bubbles-docs .VPDoc {
+    padding: 42px 44px 0;
+  }
+  .bubbles-docs .VPDoc > .container > .content {
+    min-width: 0;
+    padding: 0 0 96px;
+  }
+  .bubbles-docs .VPDoc .content > .content-container {
+    max-width: 740px;
+  }
+}
+
+@media (min-width: 960px) and (max-width: 1179px) {
+  /* Pages without headings still reserve the local navigation bar's height. */
+  .bubbles-docs .VPLocalNav.empty {
+    display: block;
+  }
+}
+
+@media (min-width: 1180px) {
+  .bubbles-docs .VPLocalNav {
+    display: none;
+  }
+  .bubbles-docs .VPDoc > .container {
+    display: flex;
+    justify-content: flex-start;
+    gap: 36px;
+  }
+  .bubbles-docs .VPDoc > .container > .content {
+    max-width: 740px;
+  }
+  .bubbles-docs .VPDoc .aside {
+    display: block;
+    flex: 0 0 176px;
+    width: 176px;
+    padding-left: 0;
+  }
+  .bubbles-docs .VPDoc .aside-container {
+    width: 176px;
+    padding-top: calc(var(--vp-nav-height) + 42px);
+  }
+  .bubbles-docs .VPDoc .aside-curtain {
+    width: 176px;
+  }
+}
+
+@media (max-width: 959px) {
+  .bubbles-docs .VPSidebar {
+    padding-inline: 20px;
+  }
+  .bubbles-docs .VPDoc {
+    padding-top: 30px;
+  }
+}
+@media (max-width: 639px) {
+  .bubbles-breadcrumb {
+    margin-bottom: 18px;
+  }
+  .bubbles-docs .vp-doc h1 {
+    font-size: 32px;
+  }
+  .bubbles-docs .vp-doc h2 {
+    margin-top: 32px;
+    font-size: 21px;
+  }
+  .bubbles-docs .vp-doc h1 + p {
+    font-size: 15px;
+  }
+  .bubbles-docs .VPNavBarTitle .bubbles-docs-label {
+    padding-left: 10px;
+  }
+}
+
+@media (min-width: 1180px) {
+  .bubbles-docs .vp-doc [id] {
+    scroll-margin-top: calc(var(--vp-nav-height) + 24px);
+  }
+}

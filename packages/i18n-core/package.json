@@ -1,0 +1,46 @@
+{
+  "name": "@bubblesjs/i18n-core",
+  "version": "0.0.1",
+  "description": "与框架无关的轻量国际化状态、异步词条加载和语言偏好持久化。",
+  "license": "MIT",
+  "author": "bubbles plant",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
+  "scripts": {
+    "build": "vp run bundle",
+    "prepublishOnly": "pnpm build && pnpm verify:package",
+    "test": "vp test run",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "verify:package": "node ../../scripts/verify-package.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:"
+  }
+}
