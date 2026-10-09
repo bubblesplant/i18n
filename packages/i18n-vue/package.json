@@ -1,6 +1,6 @@
 {
   "name": "@bubblesjs/i18n-vue",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "面向 Vue 3 的轻量国际化 Provider 和响应式 Composables。",
   "license": "MIT",
   "files": [
