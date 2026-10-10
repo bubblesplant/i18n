@@ -2,7 +2,12 @@
   "extends": "../../tsconfig/vue.json",
   "compilerOptions": {
     "jsx": "react-jsx",
-    "types": ["node", "vite/client"]
+    "types": ["node", "vite/client"],
+    "paths": {
+      "@bubblesjs/i18n-core": ["../../packages/i18n-core/src/index.ts"],
+      "@bubblesjs/i18n-react": ["../../packages/i18n-react/src/index.tsx"],
+      "@bubblesjs/i18n-vue": ["../../packages/i18n-vue/src/index.ts"]
+    }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue", "vite.config.ts"]
 }
