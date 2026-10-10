@@ -1,6 +1,6 @@
 {
   "name": "@bubblesjs/i18n-react",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "面向 React 的轻量国际化 Provider 和外部状态订阅 Hooks。",
   "license": "MIT",
   "files": [

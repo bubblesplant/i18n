@@ -1,6 +1,6 @@
 {
   "name": "@bubblesjs/i18n-core",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "与框架无关的轻量国际化状态、异步词条加载和语言偏好持久化。",
   "license": "MIT",
   "author": "bubbles plant",
