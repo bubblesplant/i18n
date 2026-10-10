@@ -31,14 +31,14 @@ export class EmptyScanCleanError extends Error {
   override name = "EmptyScanCleanError";
 }
 
-interface CatalogFormat {
+export interface CatalogFormat {
   bom: boolean;
   eol: "\n" | "\r\n";
   indent: string | number | undefined;
   trailingEol: boolean;
 }
 
-interface CatalogState {
+export interface CatalogState {
   exists: boolean;
   messages: Record<string, string>;
   format: CatalogFormat;
@@ -149,7 +149,7 @@ async function planCatalog(
 }
 
 /** 读取并校验扁平字符串语言包，同时记录原格式；文件缺失时返回空词条与默认格式。 */
-async function readCatalog(path: string): Promise<CatalogState> {
+export async function readCatalog(path: string): Promise<CatalogState> {
   let source: string;
 
   try {
@@ -218,7 +218,7 @@ function detectFormat(source: string): CatalogFormat {
 }
 
 /** 按照检测到的文件格式序列化词条，恢复 BOM、换行符和末尾换行。 */
-function serializeCatalog(messages: Record<string, string>, format: CatalogFormat): string {
+export function serializeCatalog(messages: Record<string, string>, format: CatalogFormat): string {
   const serialized = JSON.stringify(messages, undefined, format.indent) ?? "{}";
   const withEol = format.eol === "\n" ? serialized : serialized.split("\n").join(format.eol);
   const withTrailingEol = format.trailingEol ? `${withEol}${format.eol}` : withEol;

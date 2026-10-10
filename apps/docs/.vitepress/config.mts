@@ -6,7 +6,7 @@ const base = basePath ? `/${basePath}/` : "/";
 
 export default defineConfig({
   title: "BubblesJS i18n",
-  description: "轻量国际化核心、React 与 Vue 适配层，以及 JSON 词条维护 CLI",
+  description: "了解国际化实现思路，接入 Vue 与 React，并用 CLI 扫描项目、维护 JSON 词条",
   lang: "zh-CN",
   base,
   cleanUrls: true,
@@ -39,34 +39,32 @@ export default defineConfig({
     logo: { src: "/mark.svg", alt: "BubblesJS i18n" },
     nav: [
       { text: "快速开始", link: "/guide/getting-started" },
+      { text: "实现思路", link: "/guide/architecture" },
       { text: "核心容器", link: "/guide/core" },
       {
         text: "框架适配",
         items: [
           { text: "React", link: "/guide/react" },
           { text: "Vue", link: "/guide/vue" },
+          { text: "全局与局部使用", link: "/guide/scopes" },
         ],
       },
       { text: "词条 CLI", link: "/guide/cli" },
-      { text: "版本与发布", link: "/guide/release" },
+      { text: "版本发布", link: "https://github.com/bubblesplant/i18n/releases" },
     ],
+    socialLinks: [{ icon: "github", link: "https://github.com/bubblesplant/i18n" }],
     sidebar: {
       "/guide/": [
         {
           text: "使用指南",
           items: [
             { text: "快速开始", link: "/guide/getting-started" },
+            { text: "实现思路", link: "/guide/architecture" },
             { text: "核心容器", link: "/guide/core" },
-            { text: "React 适配层", link: "/guide/react" },
-            { text: "Vue 适配层", link: "/guide/vue" },
+            { text: "React 接入与使用", link: "/guide/react" },
+            { text: "Vue 接入与使用", link: "/guide/vue" },
+            { text: "全局与局部使用", link: "/guide/scopes" },
             { text: "词条 CLI", link: "/guide/cli" },
-          ],
-        },
-        {
-          text: "维护与发布",
-          items: [
-            { text: "工作区约定", link: "/guide/workspace" },
-            { text: "版本与发布", link: "/guide/release" },
           ],
         },
       ],

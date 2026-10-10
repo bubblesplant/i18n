@@ -1,13 +1,6 @@
-import {
-  computed,
-  defineComponent,
-  inject,
-  provide,
-  type ComputedRef,
-  type InjectionKey,
-  type PropType,
-} from "vue";
 import type { I18nState, I18nStore } from "@bubblesjs/i18n-core";
+import type { ComputedRef, InjectionKey, PropType } from "vue";
+import { computed, defineComponent, inject, provide } from "vue";
 import { useI18nStore } from "./use-store";
 
 export const I18nKey: InjectionKey<I18nStore> = Symbol("i18n");

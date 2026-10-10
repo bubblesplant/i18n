@@ -23,6 +23,8 @@ export interface ScanFilesResult {
 }
 
 const defaultExcludes = [
+  "**/.bubbles-i18n/**",
+  "**/.bubbles-i18n-backups/**",
   "**/.git/**",
   "**/.pnpm-store/**",
   "**/.vite/**",

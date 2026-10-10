@@ -18,6 +18,8 @@ coverage/
 **/.vitepress/cache/
 **/.vitepress/dist/
 *.tgz
+.bubbles-i18n/
+**/.bubbles-i18n-backups/
 
 # dotenv environment variable files
 .env

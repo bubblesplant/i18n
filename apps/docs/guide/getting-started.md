@@ -1,89 +1,133 @@
 # 快速开始
 
-BubblesJS i18n 提供核心翻译容器、React / Vue 适配层和词条 CLI，可按项目需要独立使用：
+先选择框架，按「准备 JSON → 创建 core 容器 → Provider 接入 → 组件翻译与切换」完成应用接入。再安装 CLI，让源码中的翻译 key 自动同步到 JSON。
 
-| 包                      | 用途                                 | 环境                 |
-| ----------------------- | ------------------------------------ | -------------------- |
-| `@bubblesjs/i18n-core`  | 翻译、语言加载、状态订阅和持久化     | 浏览器、Node.js、SSR |
-| `@bubblesjs/i18n-react` | React Provider 与 Hooks              | React `>=18.0.0`     |
-| `@bubblesjs/i18n-vue`   | Vue Provider 与 Composables          | Vue `^3.5.43`        |
-| `@bubblesjs/i18n-cli`   | 扫描静态 key、同步和检查 JSON 语言包 | Node.js `>=22.18.0`  |
+想先理解整体设计，可阅读[实现思路](./architecture)。源码在 [GitHub](https://github.com/bubblesplant/i18n)，版本更新见 [GitHub Releases](https://github.com/bubblesplant/i18n/releases)。四个公开包当前均为 `0.0.2`，已发布到 npm；下面命令使用 `latest` 标签。
 
-下面的安装命令默认使用 npm 的 `latest` 标签。
+## 选择你的接入方式
 
-## 选择需要的包
+| 场景                      | 安装命令                                              | 完整教程                    |
+| ------------------------- | ----------------------------------------------------- | --------------------------- |
+| Vue 3 应用                | `pnpm add @bubblesjs/i18n-core @bubblesjs/i18n-vue`   | [Vue 接入与使用](./vue)     |
+| React 应用                | `pnpm add @bubblesjs/i18n-core @bubblesjs/i18n-react` | [React 接入与使用](./react) |
+| 普通 JavaScript / Node.js | `pnpm add @bubblesjs/i18n-core`                       | [核心容器](./core)          |
+| 开发时维护语言包          | `pnpm add -D @bubblesjs/i18n-cli`                     | [CLI 使用](./cli)           |
 
-只使用核心容器：
+React 应用需提供 React `>=18.0.0` 和对应渲染器；Vue 应用需提供 Vue `^3.5.43`。CLI 要求 Node.js `>=22.18.0`。运行时与 CLI 可分别安装。
 
-```sh
-pnpm add @bubblesjs/i18n-core
+## 准备语言 JSON
+
+在 `src/locales/` 下创建两个文件，使用相同 key：
+
+::: code-group
+
+```json [src/locales/zh-CN.json]
+{
+  "welcome": "你好，{name}！",
+  "menu.home": "首页"
+}
 ```
 
-React 应用：
-
-```sh
-pnpm add @bubblesjs/i18n-core @bubblesjs/i18n-react
+```json [src/locales/en-US.json]
+{
+  "welcome": "Hello, {name}!",
+  "menu.home": "Home"
+}
 ```
 
-应用同时需要 React 和对应渲染器；尚未安装时添加 `react`、`react-dom`。适配层把 React 声明为 peer dependency，避免在包内携带第二份 React。本仓库使用 React 19 验证。
+:::
 
-Vue 应用：
+词条是扁平对象，所有值都是字符串。`menu.home` 直接作为 key，不表示嵌套对象。也可以选择中文原文作为 key，如 `"保存": "Save"`；框架指南使用这种方式演示。
 
-```sh
-pnpm add @bubblesjs/i18n-core @bubblesjs/i18n-vue
+## 创建容器与切换语言
+
+在 `src/i18n.ts` 中只导入默认中文包，显式传入默认语言、初始词条和切换时使用的加载器：
+
+```ts
+import { createI18n } from "@bubblesjs/i18n-core";
+import zhCN from "./locales/zh-CN.json";
+
+export const store = createI18n({
+  locale: "zh-CN",
+  message: zhCN,
+  loaderMessage: async (locale = "zh-CN") => (await import(`./locales/${locale}.json`)).default,
+});
 ```
 
-应用需提供兼容的 Vue `^3.5.43`。两个适配层都普通依赖 core；示例直接导入 `createI18n`，因此显式声明 core 依赖。
+`locale` 指定默认语言，`message` 提供默认中文词条，`loaderMessage` 提供切换语言时的加载方法。`createI18n` 同步返回容器，初始化不会调用加载器；英文包在调用 `loadLocale("en-US")` 时才动态加载。普通脚本可以这样使用：
 
-在开发期间维护语言包：
+```ts
+import { store } from "./i18n";
+
+const { tr, loadLocale } = store.getState();
+tr("welcome", { name: "Bubbles" }); // 你好，Bubbles！
+
+await loadLocale("en-US"); // 此时通过 loaderMessage 加载英文包
+tr("welcome", { name: "Bubbles" }); // Hello, Bubbles!
+```
+
+应用入口直接导入 `store` 并交给 Provider，无需等待初始化。后续切换语言由 `loadLocale` 调用同一个加载器。语言包如何加载由应用决定：可以动态 `import()`，也可以调用已有的资源请求方法；缓存和失败处理可写在加载器中。如果首屏也需要异步获取词条，或要恢复保存的语言偏好，可选择 `initI18n({ locale, loaderMessage, ... })`，见[核心容器](./core)。
+
+## 在 Vue / React 中显示译文
+
+两个框架都把上面的容器交给 `I18nProvider`，由子组件订阅语言变化：
+
+| 框架  | 根组件 / 入口                   | 子组件                                                                    |
+| ----- | ------------------------------- | ------------------------------------------------------------------------- |
+| Vue   | `<I18nProvider :store="store">` | setup 中调用 `useI18n()`，模板中调用 `tr("welcome", { name: "Bubbles" })` |
+| React | `<I18nProvider store={store}>`  | 调用 `useI18n()`，JSX 中调用 `{tr("welcome", { name: "Bubbles" })}`       |
+
+两个框架都通过 `const { tr, locale, loadLocale } = useI18n()` 获取翻译和切换方法，`tr` / `loadLocale` 都是普通函数。Vue 的 `locale` 为 computed 引用，脚本中读取 `locale.value`，模板自动解包；React 的 `locale` 是当前语言值。调用 `loadLocale("en-US")` 后，订阅的组件会更新。
+
+继续按[Vue 完整示例](./vue)或[React 完整示例](./react)创建入口和业务组件；教程包含安装、全部示例文件、切换按钮与按需加载方式。
+
+## 用 CLI 扫描项目并维护 JSON
 
 ```sh
 pnpm add -D @bubblesjs/i18n-cli
 ```
 
-运行时包和 CLI 可以分别使用，不必为了翻译组件安装 CLI。
-
-## 创建第一个国际化容器
+在项目根目录创建 `i18n.config.ts`：
 
 ```ts
-import { createI18n } from "@bubblesjs/i18n-core";
+import { defineConfig } from "@bubblesjs/i18n-cli";
 
-const store = createI18n({
-  locale: "zh-CN",
-  message: {
-    welcome: "你好，{name}！",
+export default defineConfig({
+  callNames: ["tr"],
+  projects: {
+    web: {
+      include: ["src/**/*.{js,jsx,ts,tsx,vue}"],
+      catalogs: {
+        "zh-CN": "src/locales/zh-CN.json",
+        "en-US": "src/locales/en-US.json",
+      },
+    },
   },
 });
-
-console.log(store.getState().tr("welcome", { name: "Bubbles" }));
-// 你好，Bubbles！
 ```
 
-初始词条选项是单数 `message`，词条为扁平的字符串对象。`createI18n` 同步返回容器，不会自动调用语言加载器；需要先异步加载首屏词条时，使用 `await initI18n(...)`。
+```sh
+# 扫描静态翻译调用，先预览差异
+pnpm exec bubbles-i18n sync --dry-run
 
-继续阅读[核心容器](./core)、[React](./react)或[Vue](./vue)，了解语言切换、Provider 与订阅。在[词条 CLI](./cli)中配置源码扫描和 JSON 同步。
+# 补齐缺失 key，保留已有翻译
+pnpm exec bubbles-i18n sync
 
-## 在本仓库开发
+# 检查源码与 JSON 的 key 差异
+pnpm exec bubbles-i18n check
+```
 
-本地验证环境为 Node.js `24.21.0` 和 pnpm `12.10.1`，`mise.toml` 提供可选的 Node 环境配置。TypeScript 为 6.x，VitePress 为 `2.0.0-alpha.20`。
+扫描包含在 `sync` / `check` 内部。新增 key 的值先等于 key，需要手动填入译文；`check` 默认检查缺失 key，不判断译文是否完成。需要同时检查未使用 key 时加上 `--fail-on-stale`。Vue 模板和脚本中的 `tr("key")` 都可扫描。
+
+本仓库 CLI 已支持 JSON ⇄ Excel：配置 `projects.<name>.excel.file` 后，使用 `excel export` 导出翻译表，再使用 `excel import` 把译者填写的译文导入回 JSON。流程与冲突规则见[CLI 使用](./cli#excel-workflow)，npm 包的功能发布状态见 [GitHub Releases](https://github.com/bubblesplant/i18n/releases)。
+
+## 在本仓库开发文档与示例
+
+本地环境使用 Node.js `24.21.0`、pnpm `12.10.1`。克隆仓库后：
 
 ```sh
 pnpm install --frozen-lockfile
-pnpm ready
+pnpm docs:dev
 ```
 
-`pnpm ready` 完成格式、lint、类型、测试、构建，以及本地产物和真实发布 tarball 的消费验证，不执行 npm 发布。
-
-| 根目录命令             | 用途                                                     |
-| ---------------------- | -------------------------------------------------------- |
-| `pnpm test`            | 运行各包单元测试                                         |
-| `pnpm typecheck`       | 检查工作区类型                                           |
-| `pnpm build`           | 构建包、应用和文档                                       |
-| `pnpm docs:build`      | 只构建文档                                               |
-| `pnpm verify:packages` | 验证本地 ESM/CJS、声明和 npm 文件清单，需要先构建        |
-| `pnpm verify:release`  | 打包并隔离安装四包，验证实际导入、类型和 CLI，需要先构建 |
-| `pnpm ready`           | 执行全部发布前验证                                       |
-| `pnpm changeset`       | 记录后续发布的包变更                                     |
-| `pnpm release`         | 验证完成后实际发布 npm                                   |
-
-需要本地交互时，`pnpm dev` 启动 Playground，`pnpm docs:dev` 启动文档；两个命令会启动持续运行的开发服务。仓库的私有应用不参与 npm 发布，详见[工作区约定](./workspace)。版本维护与发布流程见[版本与发布](./release)。
+文档默认端口为 5174；`pnpm dev` 启动 Vue playground，默认端口为 5173。`pnpm docs:build` 只构建文档，`pnpm ready` 执行完整质量检查和产物验证，不发布 npm。

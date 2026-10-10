@@ -10,7 +10,7 @@ export default defineConfig({
     platform: "node",
     target: "node22",
     dts: { generator: "tsc" },
-    deps: { neverBundle: ["fast-glob"] },
+    deps: { neverBundle: ["fast-glob", "exceljs"] },
     clean: true,
     treeshake: true,
     shims: true,

@@ -66,7 +66,7 @@ const section = computed(() => {
       <div v-if="isHome" class="bubble-announcement">
         <a class="bubble-announcement-main" :href="withBase('/guide/getting-started')">
           <img :src="withBase('/mark.svg')" alt="" width="20" height="20" />
-          <span>BubblesJS i18n · 一套词条，连接 React 与 Vue</span>
+          <span>BubblesJS i18n · 从核心容器到 React 与 Vue 组件翻译</span>
           <span aria-hidden="true">→</span>
         </a>
         <a class="bubble-announcement-cli" :href="withBase('/guide/cli')">词条 CLI ↗</a>

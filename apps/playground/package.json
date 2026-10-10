@@ -10,10 +10,17 @@
     "typecheck": "vue-tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@bubblesjs/i18n-core": "workspace:*",
+    "@bubblesjs/i18n-react": "workspace:*",
+    "@bubblesjs/i18n-vue": "workspace:*",
+    "react": "catalog:",
+    "react-dom": "catalog:",
     "vue": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
     "@vitejs/plugin-vue": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",

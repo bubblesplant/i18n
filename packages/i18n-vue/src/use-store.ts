@@ -1,6 +1,6 @@
-import { computed, onScopeDispose, shallowRef } from "vue";
-import type { ComputedRef, ShallowRef } from "vue";
 import type { I18nState, I18nStore } from "@bubblesjs/i18n-core";
+import type { ComputedRef, ShallowRef } from "vue";
+import { computed, onScopeDispose, shallowRef } from "vue";
 
 /** 订阅国际化容器，并以计算属性返回选择器提取的状态。 */
 export function useI18nStore<T>(

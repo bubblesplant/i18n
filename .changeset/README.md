@@ -8,4 +8,4 @@
 
 后续修改公开包时运行 `pnpm changeset`，选择包、版本类型并写明变更。运行 `pnpm version-packages` 更新版本、CHANGELOG 和锁文件，再执行 `pnpm release`。
 
-`pnpm ready` 检查格式、lint、类型、测试、构建、本地产物和隔离 npm tarball 消费。验证命令不会发布包。完整流程见 [发布指南](../apps/docs/guide/release.md)。
+`pnpm ready` 检查格式、lint、类型、测试、构建、本地产物和隔离 npm tarball 消费。验证命令不会发布包。

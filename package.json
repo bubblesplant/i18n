@@ -15,9 +15,8 @@
     "format": "vp fmt --write .",
     "format:check": "vp fmt --check .",
     "hooks:install": "vp config --hooks-dir .vite-hooks --no-agent",
-    "lint": "pnpm lint:ox && pnpm lint:vue",
-    "lint:ox": "vp lint .",
-    "lint:vue": "eslint \"apps/**/*.vue\" \"packages/**/*.vue\" --no-error-on-unmatched-pattern --max-warnings=0",
+    "lint": "vp lint . --max-warnings=0",
+    "lint:fix": "vp lint . --fix --max-warnings=0",
     "preview": "vp run playground#preview",
     "ready": "pnpm run ci",
     "release": "pnpm ready && changeset publish",
@@ -28,12 +27,10 @@
     "version-packages": "changeset version && pnpm install --lockfile-only --no-frozen-lockfile"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "catalog:",
     "@changesets/cli": "catalog:",
     "@commitlint/cli": "catalog:",
     "@commitlint/config-conventional": "catalog:",
     "@types/node": "catalog:",
-    "eslint": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vite-plus": "catalog:"

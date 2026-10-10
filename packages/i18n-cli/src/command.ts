@@ -2,12 +2,20 @@ import { readFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
 import type { I18nProjectConfig } from "./config.ts";
+import { applyExcel, planExcel, type ExcelProjectInput } from "./excel.ts";
 import { scanFiles, type ScanFilesResult } from "./files.ts";
 import { loadConfig } from "./load-config.ts";
 import { createSyncReport, type SyncFileReport, writeSyncReport } from "./report.ts";
 import { syncProject } from "./sync.ts";
+import {
+  assertSafeMarkdownTarget,
+  quoteArgument,
+  renderExcelMarkdown,
+  renderScanMarkdown,
+  writeMarkdownReport,
+} from "./markdown-report.ts";
 
-export type CliCommand = "check" | "sync";
+export type CliCommand = "check" | "sync" | "excel export" | "excel import";
 
 export interface CliEnvironment {
   cwd?: string;
@@ -23,6 +31,9 @@ interface ParsedArguments {
   allowEmpty: boolean;
   dryRun: boolean;
   failOnStale: boolean;
+  force: boolean;
+  prefer: "excel" | "json";
+  locales: string[];
 }
 
 interface ProjectExecution {
@@ -50,23 +61,34 @@ export class CliUsageError extends Error {
 const helpText = `用法：
   bubbles-i18n sync [options]
   bubbles-i18n check [options]
+  bubbles-i18n excel export [options]
+  bubbles-i18n excel import [options]
 
 命令：
   sync   把源码中缺失的静态 tr() key 添加到配置的语言包。
   check  只检查、不修改语言包；存在缺失 key 时返回失败。
+  excel export  JSON → Excel，补缺失行并检测译文冲突。
+  excel import  Excel → JSON，导入译文并检测译文冲突。
 
 选项：
   --config <path>       使用指定配置文件，不再自动查找 i18n.config.ts。
   --project <name>      只处理指定项目；可以多次传入。
-  --dry-run             预览同步结果，不修改语言包。
-  --clean               删除源码中已不存在的 key。
-  --allow-empty         配合 --clean，允许空扫描结果清空语言包。
+  --locale <locale>     Excel 命令只处理指定语言；可以多次传入。
+  --dry-run             生成预览报告，不修改 JSON/XLSX，不创建数据备份。
+  --prune               删除目标端独有 key；Excel 清理需显式 --project。
+  --clean               sync --prune 的兼容参数。
+  -f, --force           Excel 值冲突时允许执行，默认采用 Excel。
+  --prefer excel|json   指定冲突优先方，必须配合 --force。
+  --allow-empty         配合 sync --prune/--clean，允许零 key 扫描清空语言包。
   --fail-on-stale       check 时发现废弃 key 也返回失败。
   -h, --help            显示帮助信息。
 
 安全保护：
   项目的 include 未匹配到可读取文本源文件时，--clean 始终拒绝执行。
-  已有翻译保持不变；新增项默认使用 key 作为翻译值。`;
+  扫描保留已有翻译；新增项默认使用 key 作为翻译值。
+  Excel 普通命令有值冲突时退出 1，所有选中项目数据均不写入。
+  多余 key 默认保留并逐项报告；--prune 不解决值冲突。
+  报告：.bubbles-i18n/reports/{sync,excel-export,excel-import}.md。`;
 
 /** 解析命令并执行词条扫描、语言包校验与可选同步，输出报告和摘要，返回命令退出码。 */
 export async function runCli(
@@ -98,19 +120,44 @@ export async function runCli(
     ? resolveFromRoot(loaded.rootDir, loaded.config.report)
     : undefined;
 
-  validateOutputPaths(allProjectCatalogs, reportPath, loaded.configPath);
+  const markdownPath =
+    options.command === "check"
+      ? undefined
+      : resolve(
+          loaded.rootDir,
+          ".bubbles-i18n",
+          "reports",
+          `${options.command.replace(" ", "-")}.md`,
+        );
+  const excelPaths = Object.entries(loaded.config.projects).flatMap(([name, project]) =>
+    project.excel ? [{ name, path: resolveFromRoot(loaded.rootDir, project.excel.file) }] : [],
+  );
+  validateOutputPaths(allProjectCatalogs, reportPath, loaded.configPath, excelPaths, markdownPath);
+  if (markdownPath)
+    await assertSafeMarkdownTarget(
+      markdownPath,
+      options.command as "sync" | "excel export" | "excel import",
+    );
+
+  const projectEntries = selectProjects(loaded.config.projects, options.projects);
+  if (options.command === "excel export" || options.command === "excel import") {
+    return runExcelCommand(options, projectEntries, loaded.rootDir, markdownPath!, writeOutput);
+  }
   if (reportPath) {
     await assertSafeReportTarget(reportPath);
   }
 
-  const projectEntries = selectProjects(loaded.config.projects, options.projects);
   const executions = await Promise.all(
     projectEntries.map(
       /** 扫描词条并拦截无源文件的清理。 */ async ([name, project]): Promise<ProjectExecution> => {
+        if (!project.include)
+          throw new CliUsageError(
+            `Project "${name}" requires include for ${options.command}; select scanning projects with --project.`,
+          );
         const scan = await scanFiles({
           rootDir: loaded.rootDir,
           include: project.include,
-          exclude: project.exclude,
+          exclude: [...(project.exclude ?? []), "**/.bubbles-i18n/**"],
           callNames: loaded.config.callNames,
         });
 
@@ -132,6 +179,7 @@ export async function runCli(
   if (reportPath) {
     assertReportIsNotSourceFile(executions, reportPath);
   }
+  if (markdownPath) assertReportIsNotSourceFile(executions, markdownPath);
 
   // Validate every selected catalog before any project is allowed to write.
   const previews = await Promise.all(
@@ -148,18 +196,41 @@ export async function runCli(
   );
 
   let fileReports = previews.flat();
+  const retryCommand = createReplayCommand(options);
+  const pruneCommand = `${createScopeCommand(options)}${options.allowEmpty ? " --allow-empty" : ""}`;
+  if (markdownPath) {
+    await writeMarkdownReport(
+      markdownPath,
+      renderScanMarkdown({ files: fileReports, status: "preview", retryCommand, pruneCommand }),
+    );
+  }
   if (options.command === "sync" && !options.dryRun) {
-    fileReports = [];
-    for (const execution of executions) {
-      fileReports.push(
-        ...(await syncProject({
-          project: execution.name,
-          catalogs: execution.catalogs,
-          keys: execution.scan.keys,
-          clean: options.clean,
-          allowEmpty: options.allowEmpty,
-        })),
-      );
+    try {
+      fileReports = [];
+      for (const execution of executions) {
+        fileReports.push(
+          ...(await syncProject({
+            project: execution.name,
+            catalogs: execution.catalogs,
+            keys: execution.scan.keys,
+            clean: options.clean,
+            allowEmpty: options.allowEmpty,
+          })),
+        );
+      }
+    } catch (error) {
+      if (markdownPath)
+        await writeMarkdownReport(
+          markdownPath,
+          renderScanMarkdown({
+            files: previews.flat(),
+            status: "failed",
+            retryCommand,
+            pruneCommand,
+            error: errorMessage(error),
+          }),
+        );
+      throw error;
     }
   }
 
@@ -177,12 +248,26 @@ export async function runCli(
   if (reportPath) {
     await writeSyncReport(report, reportPath);
   }
+  if (markdownPath)
+    await writeMarkdownReport(
+      markdownPath,
+      renderScanMarkdown({
+        files: portableReports,
+        status: options.dryRun ? "preview" : "applied",
+        retryCommand,
+        pruneCommand,
+      }),
+    );
 
   printSummary({
     command: options.command,
     dryRun: options.dryRun,
     configPath: toPortablePath(cwd, loaded.configPath),
-    reportPath: reportPath ? toPortablePath(loaded.rootDir, reportPath) : undefined,
+    reportPath: markdownPath
+      ? toPortablePath(loaded.rootDir, markdownPath)
+      : reportPath
+        ? toPortablePath(loaded.rootDir, reportPath)
+        : undefined,
     executions,
     files: portableReports,
     writeOutput,
@@ -224,10 +309,139 @@ export async function main(
   }
 }
 
+/** Excel 命令不扫描源码：先计划全部项目，冲突时仅写报告，获准后只写目标端。 */
+async function runExcelCommand(
+  options: ParsedArguments,
+  entries: readonly [string, I18nProjectConfig][],
+  rootDir: string,
+  reportPath: string,
+  writeOutput: (message: string) => void,
+): Promise<number> {
+  const projects: ExcelProjectInput[] = entries.map(([name, project]) => {
+    if (!project.excel)
+      throw new CliUsageError(
+        `Project "${name}" requires excel.file; select Excel projects with --project.`,
+      );
+    const available = Object.keys(project.catalogs);
+    for (const locale of options.locales) {
+      if (!available.includes(locale))
+        throw new CliUsageError(
+          `Unknown locale "${locale}" in project "${name}". Available locales: ${available.join(", ")}.`,
+        );
+    }
+    return {
+      name,
+      catalogs: resolveCatalogs(rootDir, project.catalogs),
+      excelPath: resolveFromRoot(rootDir, project.excel.file),
+      sheet: project.excel.sheet ?? "translations",
+      locales: options.locales.length ? options.locales : available,
+    };
+  });
+  const plan = await planExcel({
+    direction: options.command === "excel export" ? "export" : "import",
+    projects,
+    force: options.force,
+    prefer: options.prefer,
+    prune: options.clean,
+    dryRun: options.dryRun,
+  });
+  const retryCommand = createReplayCommand(options);
+  const forceCommand = createReplayCommand(options, false);
+  const pruneCommand = createScopeCommand(
+    options,
+    projects.map((project) => project.name),
+  );
+  await writeMarkdownReport(
+    reportPath,
+    renderExcelMarkdown({
+      plan,
+      status: plan.blocked ? "blocked" : "preview",
+      retryCommand,
+      forceCommand,
+      pruneCommand,
+    }),
+  );
+  if (!plan.blocked && !options.dryRun) {
+    try {
+      await applyExcel(plan);
+      await writeMarkdownReport(
+        reportPath,
+        renderExcelMarkdown({
+          plan,
+          status: "applied",
+          retryCommand,
+          forceCommand,
+          pruneCommand,
+          backups: plan.projects.flatMap((project) => project.backupPaths),
+        }),
+      );
+    } catch (error) {
+      await writeMarkdownReport(
+        reportPath,
+        renderExcelMarkdown({
+          plan,
+          status: "failed",
+          retryCommand,
+          forceCommand,
+          pruneCommand,
+          backups: plan.projects.flatMap((project) => project.backupPaths),
+          error: errorMessage(error),
+        }),
+      );
+      throw error;
+    }
+  }
+  writeOutput(`bubbles-i18n ${options.command}${options.dryRun ? " dry-run" : ""}`);
+  for (const project of plan.projects) {
+    writeOutput(
+      `Project ${project.project}: added ${project.additions.length}, extra ${project.extras.length}, deleted ${project.deletions.length}, conflicts ${project.conflicts.length}, skipped ${project.skipped.length}.`,
+    );
+    for (const item of project.extras)
+      writeOutput(`  保留目标端独有 key: ${JSON.stringify(item.key)} (${item.locale})`);
+    for (const item of project.conflicts)
+      writeOutput(
+        `  冲突 ${JSON.stringify(item.key)} (${item.locale}): JSON=${JSON.stringify(item.jsonValue)}, Excel=${JSON.stringify(item.excelValue)}; ${project.excelPath} / ${item.sheet} / ${item.cell}`,
+      );
+  }
+  writeOutput(`Report: ${toPortablePath(rootDir, reportPath)}`);
+  if (plan.blocked) {
+    writeOutput("值冲突阻断，所有选中项目数据均未写入。请先处理报告中的冲突，或使用以下命令：");
+    writeOutput(`${forceCommand} --force --prefer excel`);
+    writeOutput(`${forceCommand} --force --prefer json`);
+    return 1;
+  }
+  writeOutput(options.dryRun ? "预览完成，数据未写入。" : "转换完成。");
+  return 0;
+}
+
+/** 保留配置、项目及语言选择，具体操作参数由调用方补充。 */
+function createScopeCommand(options: ParsedArguments, projects = options.projects): string {
+  const words = ["pnpm exec bubbles-i18n", options.command];
+  if (options.configPath) words.push("--config", quoteArgument(options.configPath));
+  for (const project of projects) words.push("--project", quoteArgument(project));
+  for (const locale of options.locales) words.push("--locale", quoteArgument(locale));
+  return words.join(" ");
+}
+
+/** 保留本次命令语义；选择另一冲突优先方时只移除原强制与优先方参数。 */
+function createReplayCommand(options: ParsedArguments, includeResolution = true): string {
+  const words = [createScopeCommand(options)];
+  if (options.clean) words.push("--prune");
+  if (options.allowEmpty) words.push("--allow-empty");
+  if (options.force && includeResolution) words.push("--force", "--prefer", options.prefer);
+  if (options.dryRun) words.push("--dry-run");
+  return words.join(" ");
+}
+
 /** 解析同步或检查命令的选项，校验必填值、未知选项和互斥组合。 */
 function parseArguments(arguments_: readonly string[]): ParsedArguments {
-  const command = arguments_[0];
-  if (command !== "sync" && command !== "check") {
+  const command = arguments_[0] === "excel" ? `excel ${arguments_[1] ?? ""}` : arguments_[0];
+  if (
+    command !== "sync" &&
+    command !== "check" &&
+    command !== "excel export" &&
+    command !== "excel import"
+  ) {
     throw new CliUsageError(`Unknown command "${command ?? ""}".`);
   }
 
@@ -237,8 +451,12 @@ function parseArguments(arguments_: readonly string[]): ParsedArguments {
   let allowEmpty = false;
   let dryRun = false;
   let failOnStale = false;
+  let force = false;
+  let prefer: "excel" | "json" | undefined;
+  const locales = new Set<string>();
+  const excel = command === "excel export" || command === "excel import";
 
-  for (let index = 1; index < arguments_.length; index += 1) {
+  for (let index = excel ? 2 : 1; index < arguments_.length; index += 1) {
     const argument = arguments_[index] ?? "";
 
     if (argument === "--config") {
@@ -253,7 +471,33 @@ function parseArguments(arguments_: readonly string[]): ParsedArguments {
       index = nextIndex;
     } else if (argument.startsWith("--project=")) {
       projects.add(readInlineOptionValue(argument, "--project"));
+    } else if (argument === "--locale" || argument.startsWith("--locale=")) {
+      if (argument === "--locale") {
+        const [value, nextIndex] = readOptionValue(arguments_, index, "--locale");
+        locales.add(value);
+        index = nextIndex;
+      } else locales.add(readInlineOptionValue(argument, "--locale"));
+    } else if (argument === "--force" || argument === "-f") {
+      force = true;
+    } else if (argument === "--prefer" || argument.startsWith("--prefer=")) {
+      let value: string;
+      if (argument === "--prefer") {
+        const result = readOptionValue(arguments_, index, "--prefer");
+        value = result[0];
+        index = result[1];
+      } else value = readInlineOptionValue(argument, "--prefer");
+      if (value !== "excel" && value !== "json")
+        throw new CliUsageError("--prefer must be excel or json.");
+      if (prefer && prefer !== value)
+        throw new CliUsageError("--prefer excel and --prefer json are mutually exclusive.");
+      prefer = value;
+    } else if (argument === "--prune") {
+      clean = true;
     } else if (argument === "--clean") {
+      if (excel)
+        throw new CliUsageError(
+          "--clean is only available with sync; use --prune for Excel commands.",
+        );
       clean = true;
     } else if (argument === "--allow-empty") {
       allowEmpty = true;
@@ -267,17 +511,25 @@ function parseArguments(arguments_: readonly string[]): ParsedArguments {
   }
 
   if (command === "check" && clean) {
-    throw new CliUsageError("--clean is only available with the sync command.");
+    throw new CliUsageError("--clean/--prune is not available with check.");
   }
   if (command === "check" && dryRun) {
     throw new CliUsageError("check is already read-only; --dry-run is only available with sync.");
   }
-  if (command === "sync" && failOnStale) {
+  if (command !== "check" && failOnStale) {
     throw new CliUsageError("--fail-on-stale is only available with the check command.");
   }
   if (allowEmpty && !clean) {
-    throw new CliUsageError("--allow-empty requires --clean.");
+    throw new CliUsageError("--allow-empty requires --clean or --prune.");
   }
+  if (excel && allowEmpty) throw new CliUsageError("--allow-empty is only available with sync.");
+  if (!excel && (force || prefer || locales.size))
+    throw new CliUsageError(
+      "--force, --prefer and --locale are only available with Excel commands.",
+    );
+  if (prefer && !force) throw new CliUsageError("--prefer requires --force.");
+  if (excel && clean && projects.size === 0)
+    throw new CliUsageError("Excel --prune requires an explicit --project.");
 
   return {
     command,
@@ -287,6 +539,9 @@ function parseArguments(arguments_: readonly string[]): ParsedArguments {
     allowEmpty,
     dryRun,
     failOnStale,
+    force,
+    prefer: prefer ?? "excel",
+    locales: [...locales],
   };
 }
 
@@ -297,7 +552,7 @@ function readOptionValue(
   option: string,
 ): [value: string, nextIndex: number] {
   const value = arguments_[index + 1];
-  if (!value || value.startsWith("--")) {
+  if (!value || value.startsWith("-")) {
     throw new CliUsageError(`${option} requires a value.`);
   }
 
@@ -361,6 +616,8 @@ function validateOutputPaths(
   projects: readonly ProjectCatalogs[],
   reportPath: string | undefined,
   configPath: string,
+  excelPaths: readonly { name: string; path: string }[] = [],
+  markdownPath?: string,
 ): void {
   const owners = new Map<string, string>();
 
@@ -375,7 +632,21 @@ function validateOutputPaths(
         );
       }
       owners.set(normalizedPath, owner);
+      if (normalizedPath === normalizeComparablePath(configPath))
+        throw new CliUsageError(`Catalog path must not overwrite the config file: "${path}".`);
     }
+  }
+
+  for (const file of excelPaths) {
+    const comparable = normalizeComparablePath(file.path);
+    const existing = owners.get(comparable);
+    if (existing)
+      throw new CliUsageError(
+        `Excel path "${file.path}" is configured by both ${existing} and ${file.name}/excel.`,
+      );
+    if (comparable === normalizeComparablePath(configPath))
+      throw new CliUsageError(`Excel path must not overwrite the config file: "${file.path}".`);
+    owners.set(comparable, `${file.name}/excel`);
   }
 
   if (reportPath && owners.has(normalizeComparablePath(reportPath))) {
@@ -384,6 +655,18 @@ function validateOutputPaths(
 
   if (reportPath && normalizeComparablePath(reportPath) === normalizeComparablePath(configPath)) {
     throw new CliUsageError(`Report path must not overwrite the config file: "${reportPath}".`);
+  }
+  if (markdownPath) {
+    const comparable = normalizeComparablePath(markdownPath);
+    if (
+      owners.has(comparable) ||
+      comparable === normalizeComparablePath(configPath) ||
+      (reportPath && comparable === normalizeComparablePath(reportPath))
+    ) {
+      throw new CliUsageError(
+        `Markdown report path must not overwrite catalogs, Excel, config or the JSON report: "${markdownPath}".`,
+      );
+    }
   }
 }
 
@@ -460,7 +743,7 @@ function summarize(files: readonly SyncFileReport[]): SummaryTotals {
 
 /** 按项目和语言输出扫描及同步结果，并展示总计与可选报告路径。 */
 function printSummary(options: {
-  command: CliCommand;
+  command: "check" | "sync";
   dryRun: boolean;
   configPath: string;
   reportPath?: string;
@@ -484,6 +767,12 @@ function printSummary(options: {
       options.writeOutput(
         `  ${file.locale} ${file.path}: added ${file.added.length}, unused ${file.unused.length}, deleted ${file.deleted.length}, unchanged ${file.unchangedCount}.`,
       );
+      for (const key of file.unused)
+        options.writeOutput(`    保留 JSON 独有 key: ${JSON.stringify(key)}`);
+      for (const key of file.deleted)
+        options.writeOutput(
+          `    ${options.command === "sync" && !options.dryRun ? "已删除" : "计划删除"} key: ${JSON.stringify(key)}`,
+        );
     }
   }
 

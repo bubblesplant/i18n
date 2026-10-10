@@ -1,7 +1,23 @@
 export { CliUsageError, main, runCli } from "./command.ts";
 export type { CliCommand, CliEnvironment } from "./command.ts";
 export { defineConfig } from "./config.ts";
-export type { I18nConfig, I18nProjectConfig } from "./config.ts";
+export type { I18nConfig, I18nProjectConfig, I18nExcelConfig } from "./config.ts";
+export {
+  planExcel,
+  applyExcel,
+  ExcelApplyError,
+  ExcelValidationError,
+  ExcelConcurrentModificationError,
+} from "./excel.ts";
+export type {
+  ExcelOptions,
+  ExcelPlan,
+  ExcelProjectInput,
+  ExcelDirection,
+  ExcelProjectPlan,
+  ExcelDifference,
+  ExcelConflict,
+} from "./excel.ts";
 export { scanFiles } from "./files.ts";
 export type { LocatedMessageOccurrence, ScanFilesOptions, ScanFilesResult } from "./files.ts";
 export {

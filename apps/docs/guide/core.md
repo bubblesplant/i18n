@@ -8,7 +8,67 @@
 pnpm add @bubblesjs/i18n-core
 ```
 
-## 同步创建
+默认用 `createI18n`，显式导入默认语言 JSON 并传入 `locale`、`message` 和 `loaderMessage`。首屏直接使用默认词条，切换时才调用加载器。core 本身不知道语言包的路径，加载方法由应用提供。
+
+## 默认语言与按需切换
+
+先创建 `src/locales/zh-CN.json`：
+
+```json
+{
+  "welcome": "你好，{name}！",
+  "menu.home": "首页"
+}
+```
+
+`src/locales/en-US.json` 保留相同 key：
+
+```json
+{
+  "welcome": "Hello, {name}!",
+  "menu.home": "Home"
+}
+```
+
+在 `src/i18n.ts` 中只静态导入默认中文，其他语言按语言名动态导入。语言包路径由应用提供，构建器把其他语言拆成按需加载的资源：
+
+```ts
+import { createI18n } from "@bubblesjs/i18n-core";
+import zhCN from "./locales/zh-CN.json";
+
+export const store = createI18n({
+  locale: "zh-CN",
+  message: zhCN,
+  loaderMessage: async (locale = "zh-CN") => (await import(`./locales/${locale}.json`)).default,
+});
+```
+
+在入口 `src/main.ts` 直接使用容器，无需等待初始化：
+
+```ts
+import { store } from "./i18n";
+
+store.getState().tr("welcome", { name: "Alex" }); // 你好，Alex！
+```
+
+`locale` 指定默认语言，`message` 提供中文词条，`loaderMessage` 提供切换时的加载方法。初始化直接使用 `message`，不调用加载器。启动界面后，根据用户的语言选择再调用：
+
+```ts
+await store.getState().loadLocale("en-US");
+store.getState().tr("welcome", { name: "Alex" }); // Hello, Alex!
+```
+
+调用 `loadLocale("en-US")` 时才动态加载英文 JSON。如果 TypeScript 无法识别 JSON 导入，请开启 `resolveJsonModule`。完整入口和 Provider 示例见 [Vue 接入](./vue)和 [React 接入](./react)。
+
+`loaderMessage` 接收可选语言，返回 `Promise<Messages | undefined>`。core 只请求选中的语言；语言包地址、缓存、重试和词条回退规则由应用的加载器决定。
+
+切换期间保留当前语言和词条，加载完成后一起更新。多个 `loadLocale` 并发时，最后一次调用优先；较早请求即使后完成，也不会覆盖新请求。
+
+切换时，加载器返回 `undefined` 或抛出异常都会使用空词条；异常通过 `console.warn` 记录。切换失败后仍提交目标 `locale` 与空 `message`，`loadLocale` 不会因此拒绝，翻译回退到 key。仅在加载器中抛出异常不能保留旧语言；需要阻止失败的语言切换时，应由应用在调用前确认资源可用或自行管理状态更新。
+
+## 初始词条与翻译
+
+`message` 也可以直接传入词条对象：
 
 ```ts
 import { createI18n } from "@bubblesjs/i18n-core";
@@ -47,39 +107,9 @@ formatMessage("你好，{name}");
 
 库不包含 ICU 消息语法、复数规则、HTML 渲染或地区词条合并。它返回字符串，具体渲染交给应用和框架。
 
-## 异步初始化与切换
-
-```ts
-import { initI18n, type Messages } from "@bubblesjs/i18n-core";
-
-const dictionaries: Record<string, Messages> = {
-  "zh-CN": { welcome: "你好，{name}！" },
-  "en-US": { welcome: "Hello, {name}!" },
-};
-
-const store = await initI18n({
-  locale: "zh-CN",
-  loaderMessage: async (locale) => dictionaries[locale ?? "zh-CN"],
-});
-
-await store.getState().loadLocale("en-US");
-store.getState().tr("welcome", { name: "Alex" }); // Hello, Alex!
-```
-
-`initI18n` 先确定初始语言并等待加载器完成，再返回容器。`loaderMessage` 接收可选语言，返回词条或 `undefined`，也可以动态导入 JSON：
-
-```ts
-const loaderMessage = async (locale?: string) => {
-  if (locale === "en-US") return (await import("./locales/en-US.json")).default;
-  return (await import("./locales/zh-CN.json")).default;
-};
-```
-
-切换期间保留当前语言和词条，加载完成后一起更新。多个 `loadLocale` 并发时，最后一次调用优先；较早请求即使后完成，也不会覆盖新请求。
-
-加载器返回 `undefined` 时使用空词条；抛出异常时通过 `console.warn` 记录，并切换为空词条，`loadLocale` 不会因此拒绝。缓存、地区回退或其他失败策略可以在加载器中实现。
-
 ## 订阅与状态
+
+下面继续使用前面导出的 `store`：
 
 ```ts
 const unsubscribe = store.subscribe(() => {
@@ -97,25 +127,36 @@ unsubscribe();
 
 ## 持久化语言偏好
 
+如果首屏词条也需要异步获取，或要恢复保存的语言偏好，可以选择 `initI18n`。它先确定初始语言，等待 `loaderMessage` 完成后再返回容器，不接收 `message`。例如将 `src/i18n.ts` 替换为：
+
 ```ts
-import { createJsonStorage, initI18n, type Messages } from "@bubblesjs/i18n-core";
+import { createJsonStorage } from "@bubblesjs/i18n-core";
 
-const storage = createJsonStorage(typeof window === "undefined" ? undefined : window.localStorage);
+export const storage = createJsonStorage(
+  typeof window === "undefined" ? undefined : window.localStorage,
+);
 
-const dictionaries: Record<string, Messages> = {
-  "zh-CN": { title: "首页" },
-  "en-US": { title: "Home" },
-};
+export const loaderMessage = async (locale = "zh-CN") =>
+  (await import(`./locales/${locale}.json`)).default;
+```
+
+入口显式传入初始化配置并等待后再挂载 Provider：
+
+```ts
+import { initI18n } from "@bubblesjs/i18n-core";
+import { loaderMessage, storage } from "./i18n";
 
 const store = await initI18n({
   locale: "zh-CN",
   storage,
   storageKey: "app:locale",
-  loaderMessage: async (locale) => dictionaries[locale ?? "zh-CN"],
+  loaderMessage,
 });
 ```
 
-`initI18n` 优先读取缓存语言，没有缓存时使用默认 `locale`。同时提供 `storage` 和 `storageKey` 后，状态变化才保存语言；不保存词条，也不在初始化时主动写入默认值。
+`initI18n` 优先读取已保存的语言偏好，没有偏好时才使用默认 `locale`：例如保存的是 `en-US`，首屏只加载英文包；没有保存值时只加载中文包。初始加载器返回 `undefined` 或抛错时，会使用空词条，异常记录为警告。
+
+`createI18n` 初始化只使用传入的 `locale` 与 `message`，不会读取保存的偏好。同时提供 `storage` 和 `storageKey` 后，两种入口都会在状态变化时保存语言；不保存词条，也不在初始化时主动写入默认值。
 
 `createJsonStorage` 包装同步的 `getItem/setItem/removeItem` 字符串存储。损坏 JSON 会尝试删除并返回 `null`，底层存储和序列化异常被忽略；写入 `undefined` 会删除旧值。SSR 不传底层存储时，读取返回 `null`，写入不执行操作。适配器不校验缓存结构，语言偏好应保持字符串。
 

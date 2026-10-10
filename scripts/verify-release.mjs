@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { run, runPackageManager } from "./commands.mjs";
 
@@ -159,7 +159,7 @@ void [VueProvider, useReactStore, useVueStore, config, options];
   );
   writeFileSync(
     join(consumer, "i18n.config.ts"),
-    "import { defineConfig } from '@bubblesjs/i18n-cli';\nexport default defineConfig({ projects: { app: { include: ['src/**/*.{ts,tsx}'], catalogs: { en: 'locales/en.json' } } } });\n",
+    "import { defineConfig } from '@bubblesjs/i18n-cli';\nexport default defineConfig({ projects: { app: { include: ['src/**/*.{ts,tsx}'], catalogs: { en: 'locales/en.json' }, excel: { file: 'translations/app.xlsx' } } } });\n",
   );
   const cli = join(consumer, "node_modules/@bubblesjs/i18n-cli/dist/cli.js");
   run(process.execPath, [cli, "check"], consumer, 1);
@@ -171,8 +171,57 @@ void [VueProvider, useReactStore, useVueStore, config, options];
     "欢迎 {name}": "欢迎 {name}",
   });
   run(process.execPath, [cli, "check"], consumer);
+
+  // Exercise the installed dependency and the real bin, including CJS's lazy Excel import.
+  const excelPath = join(consumer, "translations/app.xlsx");
+  const catalogPath = join(consumer, "locales/en.json");
+  run(process.execPath, [cli, "excel", "export", "--dry-run"], consumer);
+  assert.ok(!existsSync(excelPath));
+  assert.ok(existsSync(join(consumer, ".bubbles-i18n/reports/excel-export.md")));
+  run(process.execPath, [cli, "excel", "export"], consumer);
+  const cliRequire = createRequire(cli);
+  const { default: ExcelJS } = await import(pathToFileURL(cliRequire.resolve("exceljs")).href);
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(excelPath);
+  const sheet = workbook.getWorksheet("translations");
+  assert.deepEqual(sheet.getRow(1).values.slice(1), ["key", "en"]);
+  const helloRow = sheet
+    .getRows(2, sheet.rowCount - 1)
+    .find((row) => row.getCell(1).value === "hello");
+  helloRow.getCell(2).value = "Hello, Excel";
+  sheet.addRow(["取消", "Cancel"]);
+  await workbook.xlsx.writeFile(excelPath);
+  const beforeImport = readFileSync(catalogPath, "utf8");
+  const excelBeforeImport = readFileSync(excelPath);
+  run(process.execPath, [cli, "excel", "import"], consumer, 1);
+  assert.equal(readFileSync(catalogPath, "utf8"), beforeImport);
+  run(process.execPath, [cli, "excel", "import", "--force", "--dry-run"], consumer);
+  assert.equal(readFileSync(catalogPath, "utf8"), beforeImport);
+  run(process.execPath, [cli, "excel", "import", "--force"], consumer);
+  const imported = JSON.parse(readFileSync(catalogPath, "utf8"));
+  assert.equal(imported.hello, "Hello, Excel");
+  assert.equal(imported.取消, "Cancel");
+  assert.deepEqual(readFileSync(excelPath), excelBeforeImport);
+  imported.hello = "Hello, JSON";
+  writeFileSync(catalogPath, `${JSON.stringify(imported, null, 2)}\n`);
+  run(process.execPath, [cli, "excel", "export"], consumer, 1);
+  writeFileSync(
+    join(consumer, "cli-excel.cjs"),
+    `const assert = require('node:assert/strict');\nconst { runCli } = require('@bubblesjs/i18n-cli');\nrunCli(['excel', 'export', '--project', 'app', '--force', '--prefer', 'json']).then(code => assert.equal(code, 0)).catch(error => { console.error(error); process.exitCode = 1; });\n`,
+  );
+  run(process.execPath, ["cli-excel.cjs"], consumer);
+  const exported = new ExcelJS.Workbook();
+  await exported.xlsx.readFile(excelPath);
+  const exportedSheet = exported.getWorksheet("translations");
+  const exportedHello = exportedSheet
+    .getRows(2, exportedSheet.rowCount - 1)
+    .find((row) => row.getCell(1).value === "hello");
+  assert.equal(exportedHello.getCell(2).value, "Hello, JSON");
+  run(process.execPath, [cli, "sync", "--prune"], consumer);
+  assert.equal(Object.hasOwn(JSON.parse(readFileSync(catalogPath, "utf8")), "取消"), false);
+  assert.ok(existsSync(join(consumer, ".bubbles-i18n/reports/sync.md")));
   console.log(
-    "Verified packed installation: ESM/CJS, strict NodeNext types, React/Vue SSR, CLI bin, TS config, dry-run and sync/check.",
+    "Verified packed installation: ESM/CJS, strict NodeNext types, React/Vue SSR, CLI bin, TS config, scan/prune, Excel round-trip, conflicts, force and dry-run.",
   );
 } finally {
   assert.equal(dirname(consumer), temporaryRoot);

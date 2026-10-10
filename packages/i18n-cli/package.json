@@ -1,7 +1,7 @@
 {
   "name": "@bubblesjs/i18n-cli",
   "version": "0.0.2",
-  "description": "扫描静态翻译调用并安全同步 JSON 语言包的命令行工具",
+  "description": "扫描静态翻译调用、同步 JSON 语言包并双向转换 Excel 翻译表的命令行工具",
   "license": "MIT",
   "bin": {
     "bubbles-i18n": "./dist/cli.js"
@@ -40,6 +40,7 @@
     "prepublishOnly": "pnpm build && pnpm verify:package"
   },
   "dependencies": {
+    "exceljs": "catalog:",
     "fast-glob": "catalog:"
   },
   "devDependencies": {

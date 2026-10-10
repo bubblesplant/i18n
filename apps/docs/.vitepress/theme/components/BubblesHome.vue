@@ -6,39 +6,39 @@ import PackageCommand from "./PackageCommand.vue";
 const features = [
   {
     icon: "bolt",
-    title: "轻量核心，专注翻译",
-    text: "扁平词条、占位符插值与状态订阅。用一个框架无关的容器，连接你的语言与界面。",
-    link: "/guide/core",
+    title: "实现思路：核心与框架分层",
+    text: "核心容器管理语言、词条与订阅；React 和 Vue 将状态变化接入组件，让翻译随语言更新。",
+    link: "/guide/architecture",
   },
   {
     icon: "code",
-    title: "React，熟悉的 Hooks",
-    text: "通过 Provider 隔离组件子树的语言，用 Hooks 订阅状态，让翻译自然融入组件。",
+    title: "React：Provider + useI18n",
+    text: "创建 store，用 I18nProvider 包住组件，再调用 useI18n() 获取 tr、locale 和 loadLocale。",
     link: "/guide/react",
   },
   {
     icon: "box",
-    title: "Vue，顺手的响应式",
-    text: "Provider 与 Composables 连接同一套核心，在组件卸载时自动清理订阅。",
+    title: "Vue：Provider + useI18n",
+    text: "创建 store，通过 I18nProvider 注入；在 setup 中调用 useI18n()，在模板中用 tr() 翻译。",
     link: "/guide/vue",
   },
   {
     icon: "tools",
-    title: "词条 CLI，维护有序",
-    text: "扫描静态翻译调用，补全 JSON 语言包并保留已有翻译。预览、检查与清理，都有据可循。",
+    title: "CLI：扫描项目 → JSON",
+    text: "sync 扫描静态 tr() 调用并同步 JSON；check 检查词条差异。同步时保留已有翻译，也可先预览。",
     link: "/guide/cli",
   },
   {
     icon: "palette",
-    title: "异步语言，从容切换",
-    text: "按需加载词条，记住用户的语言偏好。切换期间保留当前内容，最后一次选择优先。",
+    title: "语言切换：加载后更新组件",
+    text: "用 loaderMessage 按需加载 JSON，通过 loadLocale 切换语言。加载完成后，订阅状态的组件自动刷新。",
     link: "/guide/core#异步初始化与切换",
   },
   {
     icon: "layers",
-    title: "按需组合，自由接入",
-    text: "核心、框架适配与 CLI 分别安装。提供 ESM、CommonJS 和 TypeScript 声明，支持服务端渲染。",
-    link: "/guide/getting-started",
+    title: "JSON ⇄ Excel：设计阶段",
+    text: "计划把 JSON 导出为表格供翻译编辑，再导回语言包。当前 CLI 尚未实现 Excel 导入导出。",
+    link: "/guide/cli",
   },
 ];
 
@@ -58,16 +58,18 @@ const iconPaths: Record<string, string> = {
     <section class="bubbles-hero" aria-labelledby="bubbles-title">
       <div class="bubbles-copy">
         <p class="bubbles-wordmark">BubblesJS i18n</p>
-        <h1 id="bubbles-title">让多语言体验<br />轻盈一点。</h1>
+        <h1 id="bubbles-title">一套词条，接入<br />Vue 与 React。</h1>
         <p class="bubbles-tagline">
-          一套词条，从语言加载到组件翻译。<br />
-          为 React、Vue 与你的下一段体验准备。
+          核心管理语言状态，组件订阅变化。<br />
+          用 CLI 扫描项目，同步与检查 JSON 词条。
         </p>
         <div class="bubbles-actions">
           <a class="bubbles-button primary" :href="withBase('/guide/getting-started')">
             快速开始 <span aria-hidden="true">→</span>
           </a>
-          <a class="bubbles-button secondary" :href="withBase('/guide/cli')">探索词条 CLI</a>
+          <a class="bubbles-button secondary" :href="withBase('/guide/architecture')"
+            >了解实现思路</a
+          >
         </div>
         <PackageCommand />
       </div>
@@ -140,7 +142,13 @@ const iconPaths: Record<string, string> = {
       </div>
     </section>
 
-    <section class="bubbles-features" aria-label="为你的下一段多语言体验准备">
+    <section class="bubbles-workflow" aria-labelledby="workflow-title">
+      <h2 id="workflow-title">词条维护主线：扫描项目 → JSON ⇄ Excel</h2>
+      <p>当前已支持扫描项目、同步与检查 JSON。JSON 与 Excel 往返编辑处于设计阶段，尚未提供命令。</p>
+      <a :href="withBase('/guide/cli')">查看 CLI 命令与规划 <span aria-hidden="true">→</span></a>
+    </section>
+
+    <section class="bubbles-features" aria-label="实现思路、框架接入与词条维护">
       <a
         v-for="feature in features"
         :key="feature.icon"
@@ -168,9 +176,12 @@ const iconPaths: Record<string, string> = {
 
     <section class="bubbles-start">
       <img :src="withBase('/mark.svg')" alt="" width="32" height="32" />
-      <h2>让下一段体验，从容一点。</h2>
+      <h2>从创建容器到组件翻译。</h2>
       <a :href="withBase('/guide/getting-started')">
-        认识 BubblesJS i18n <span aria-hidden="true">→</span>
+        查看安装与接入步骤 <span aria-hidden="true">→</span>
+      </a>
+      <a href="https://github.com/bubblesplant/i18n" target="_blank" rel="noopener noreferrer">
+        GitHub 仓库 <span aria-hidden="true">↗</span>
       </a>
     </section>
   </div>

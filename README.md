@@ -1,116 +1,151 @@
 # BubblesJS i18n
 
-与框架无关的轻量国际化核心、React / Vue 适配器和静态词条维护 CLI。四个包从 create-bubbles 的 monorepo 模板迁入此仓库，准备统一以 `0.0.1` 首次发布。
+一套用于 React、Vue 和普通 JavaScript 项目的国际化工具：core 负责加载词条与翻译，框架适配器让组件随语言变化更新，CLI 从项目源码收集 key、维护 JSON 语言包，并与 Excel 翻译表双向同步。
 
-| 包                      | 用途                                             |
-| ----------------------- | ------------------------------------------------ |
-| `@bubblesjs/i18n-core`  | 翻译插值、语言状态、异步词条加载和语言偏好持久化 |
-| `@bubblesjs/i18n-react` | React Provider、Hooks 和 SSR 支持                |
-| `@bubblesjs/i18n-vue`   | Vue 3 Provider 与响应式 Composables              |
-| `@bubblesjs/i18n-cli`   | 扫描静态翻译调用，检查和同步 JSON 语言包         |
+[GitHub 仓库](https://github.com/bubblesplant/i18n) · [版本发布 / GitHub Releases](https://github.com/bubblesplant/i18n/releases) · [实现思路](apps/docs/guide/architecture.md) · [快速开始](apps/docs/guide/getting-started.md)
 
-根项目、`docs` 和 `playground` 均保持私有，不发布到 npm。原模板中的包保留原位，本仓库单独维护迁入的版本。
+四个公开包当前均为 `0.0.2`，已发布到 npm。后续版本和变更记录请查看 GitHub Releases。
 
-## 使用
+## 实现思路
 
-以下 npm 安装命令在首次发布完成后可用。开发本仓库时使用 `pnpm install` 安装工作区依赖。
+```text
+开发时：项目源码中的 tr("key")
+             │ CLI 扫描、去重、保留译文并补齐缺失 key
+             ▼
+        各语言 JSON ⇄ Excel 翻译表
+
+首屏：默认 JSON → message → core store → React / Vue 订阅 → 组件译文
+切换：目标语言 → loaderMessage → 目标 JSON → 更新 core store
+```
+
+JSON 是开发维护与运行时加载之间的共同格式。词条是扁平的 `Record<string, string>`；`tr` 查找 key 并替换 `{name}` 等占位符，缺失词条时返回 key。切换语言时先异步加载，再一次更新语言和词条，组件通过订阅自动更新。
+
+| 包                      | 用途                                               |
+| ----------------------- | -------------------------------------------------- |
+| `@bubblesjs/i18n-core`  | 框架无关的翻译、语言状态、异步加载与语言偏好持久化 |
+| `@bubblesjs/i18n-react` | React Provider 与 Hooks                            |
+| `@bubblesjs/i18n-vue`   | Vue 3 Provider 与响应式 Composables                |
+| `@bubblesjs/i18n-cli`   | 扫描静态 key，同步与检查 JSON，JSON ⇄ Excel 转换   |
+
+CLI 独立于运行时，按需安装。本仓库已实现 `excel export` 和 `excel import`，分别把 JSON 导出为翻译表、把 Excel 译文写回 JSON；使用 npm 包时请通过 [GitHub Releases](https://github.com/bubblesplant/i18n/releases) 确认所用版本的功能。完整架构与源码入口见[实现思路](apps/docs/guide/architecture.md)。
+
+## Vue / React 接入
+
+已有 Vue 或 React 应用，选择对应适配器：
 
 ```bash
-# 与框架无关
-npm install @bubblesjs/i18n-core
-# React / Vue 按需选择
-npm install @bubblesjs/i18n-core @bubblesjs/i18n-react react
-npm install @bubblesjs/i18n-core @bubblesjs/i18n-vue vue
-# 开发时维护语言包
-npm install -D @bubblesjs/i18n-cli
+# Vue 3
+pnpm add @bubblesjs/i18n-core @bubblesjs/i18n-vue
+
+# React
+pnpm add @bubblesjs/i18n-core @bubblesjs/i18n-react
 ```
+
+两种框架共用同样的词条和 core 容器。例如先准备 `src/locales/zh-CN.json` 与 `src/locales/en-US.json`：
+
+```json
+{
+  "welcome": "你好，{name}！",
+  "menu.home": "首页"
+}
+```
+
+英文文件使用相同 key，值分别为 `Hello, {name}!`、`Home`。然后在 `src/i18n.ts` 导入默认中文词条，同步创建容器，并提供切换语言时使用的加载器：
 
 ```ts
-import { initI18n } from "@bubblesjs/i18n-core";
+import { createI18n } from "@bubblesjs/i18n-core";
+import zhCN from "./locales/zh-CN.json";
 
-const catalogs = {
-  en: { hello: "Hello {name}" },
-  zh: { hello: "你好 {name}" },
-};
-
-const store = await initI18n({
-  locale: "en",
-  loaderMessage: async (locale) => catalogs[locale === "zh" ? "zh" : "en"],
+export const store = createI18n({
+  locale: "zh-CN",
+  message: zhCN,
+  loaderMessage: async (locale = "zh-CN") => (await import(`./locales/${locale}.json`)).default,
 });
-
-store.getState().tr("hello", { name: "Bubbles" }); // Hello Bubbles
-await store.getState().loadLocale("zh");
-store.getState().tr("hello", { name: "Bubbles" }); // 你好 Bubbles
 ```
 
-已有首屏词条时可用同步 `createI18n({ locale, message })`。缺失词条返回 key；插值支持 `{name}`，参数值为字符串或数字。React 需要 18 或更高版本，Vue peer 范围为 `^3.5.43`；CLI 需要 Node.js `>=22.18.0`，通过 Node 原生能力读取 TypeScript 配置。
+首屏只静态导入默认中文包；`createI18n` 使用 `message: zhCN` 同步返回 `store`，不调用加载器。入口直接导入 `store` 并挂载 Provider。切换到英文时，`loadLocale("en-US")` 才通过 `loaderMessage` 动态加载英文 JSON。加载器由应用提供，也可以使用应用自己的资源请求方法。
 
-完整使用说明见 [快速开始](apps/docs/guide/getting-started.md)、[Core](apps/docs/guide/core.md)、[React](apps/docs/guide/react.md)、[Vue](apps/docs/guide/vue.md) 和 [CLI](apps/docs/guide/cli.md)。各包的 README 也包含 API 与示例。
+| 框架  | 在入口接入                                    | 在业务组件使用                                        | 完整示例                                     |
+| ----- | --------------------------------------------- | ----------------------------------------------------- | -------------------------------------------- |
+| Vue   | 用 `<I18nProvider :store="store">` 包裹子组件 | `useI18n()` 返回 `tr`、`loadLocale` 和响应式 `locale` | [Vue 接入与使用](apps/docs/guide/vue.md)     |
+| React | 用 `<I18nProvider store={store}>` 包裹应用    | `useI18n()` 返回 `tr`、`loadLocale` 和当前 `locale`   | [React 接入与使用](apps/docs/guide/react.md) |
 
-## 开发与验证
+Vue 需要 `^3.5.43`，React 需要 `>=18.0.0`。没有框架时，直接调用 `store.getState().tr("welcome", { name: "Bubbles" })`，用 `await store.getState().loadLocale("en-US")` 切换语言。
 
-本地验证环境为 Node.js `24.21.0`、pnpm `12.10.1`。工作区使用 TypeScript 6.x（`^6.0.3`）、Vite+ 和 VitePress `2.0.0-alpha.20`。依赖版本集中在 `pnpm-workspace.yaml` 的 catalog 中。
+如果首屏词条也需要异步获取，或需要先恢复语言偏好，可选用 `await initI18n({ locale, loaderMessage, ... })`，等待加载完成后再挂载应用。`createI18n` 直接使用传入的 `message`；`initI18n` 先调用加载器取得初始词条，再返回容器。完整 API 与持久化见[核心容器](apps/docs/guide/core.md)。
+
+## CLI：扫描项目 → JSON ⇄ Excel
+
+安装开发工具，CLI 要求 Node.js `>=22.18.0`：
+
+```bash
+pnpm add -D @bubblesjs/i18n-cli
+```
+
+在项目根目录创建 `i18n.config.ts`：
+
+```ts
+import { defineConfig } from "@bubblesjs/i18n-cli";
+
+export default defineConfig({
+  callNames: ["tr"],
+  projects: {
+    web: {
+      include: ["src/**/*.{js,jsx,ts,tsx,vue}"],
+      catalogs: {
+        "zh-CN": "src/locales/zh-CN.json",
+        "en-US": "src/locales/en-US.json",
+      },
+      excel: { file: "translations/web.xlsx" },
+    },
+  },
+});
+```
+
+```bash
+# 扫描源码并预览 JSON 的变化
+pnpm exec bubbles-i18n sync --dry-run
+
+# 扫描源码，保留已有译文，补齐各语言缺失的 key
+pnpm exec bubbles-i18n sync
+
+# 检查 JSON 是否缺少源码使用的 key，供本地或 CI 使用
+pnpm exec bubbles-i18n check
+
+# 导出 JSON 词条；默认工作表为 translations
+pnpm exec bubbles-i18n excel export
+
+# 译者填写 Excel 后，把译文写回 JSON
+pnpm exec bubbles-i18n excel import
+```
+
+扫描包含在 `sync` / `check` 中，没有独立 `scan` 命令。新增 key 的初始值为 key 本身，需要填写译文；`check` 不判断翻译是否完成。默认保留未使用词条，显式传入 `--prune` 才清理，扫描命令继续兼容 `--clean`。
+
+JSON ⇄ Excel 使用「key × 语言」表，交给译者填写后导入回 JSON。两个方向默认保留目标端多出的 key，使用 `--prune` 才删除；已有值冲突使用 `-f` 才覆盖。只做 JSON / Excel 转换的项目可以省略 `include`，扫描时必须配置它。配置、扫描范围、报告、冲突规则与 CI 用法见[CLI 使用指南](apps/docs/guide/cli.md)。
+
+## 本地开发
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm ready
+pnpm docs:dev
 ```
 
-| 命令                                       | 作用                                                              |
-| ------------------------------------------ | ----------------------------------------------------------------- |
-| `pnpm test`                                | 执行所有包的单元测试                                              |
-| `pnpm typecheck`                           | 检查包、根配置、应用与文档的类型                                  |
-| `pnpm lint` / `pnpm format:check`          | 检查代码与格式                                                    |
-| `pnpm build`                               | 按工作区依赖顺序构建包、应用和文档                                |
-| `pnpm verify:packages`                     | 验证本地 ESM/CJS 入口、声明、CLI bin 和 npm 文件清单              |
-| `pnpm verify:release`                      | 将真实 tarball 安装到隔离 npm 消费者，验证运行时、SSR、声明和 CLI |
-| `pnpm ready` / `pnpm run ci`               | 完整质量检查、构建和两类发布产物验证                              |
-| `pnpm docs:build`                          | 生成静态文档                                                      |
-| `pnpm dev` / `pnpm docs:dev`               | 按需启动 playground / 文档站                                      |
-| `pnpm changeset` / `pnpm version-packages` | 记录并应用后续版本变更                                            |
-| `pnpm release`                             | 先完整验证，再发布公开包到 npmjs                                  |
-
-`verify:release` 依赖先构建完成的 `dist`；会访问 npm registry 安装框架与类型依赖，结束后删除自己的临时目录。它检查 pnpm 打包时正确转换 `workspace:` 和 `catalog:`，并在独立项目中运行严格的 ESM/CJS NodeNext 类型消费、React/Vue SSR、CLI bin、TypeScript 配置、dry-run 与 sync/check。
-
-pnpm 12 的 `pnpm ci` 是内置安装命令，本项目的完整验证请使用 `pnpm ready` 或 `pnpm run ci`。开发服务仅在手动运行上述 dev 命令时启动；playground 默认端口为 5173，文档为 5174。
-
-## 目录
-
-```text
-apps/
-  docs/                 VitePress 中文文档，独立于运行时包
-  playground/           原模板的 Vue 示例应用（私有）
-packages/
-  i18n-core/            @bubblesjs/i18n-core
-  i18n-react/           @bubblesjs/i18n-react
-  i18n-vue/             @bubblesjs/i18n-vue
-  i18n-cli/             @bubblesjs/i18n-cli
-scripts/                本地产物及隔离 npm 安装验证
-tsconfig/               共享 TypeScript 配置
-.changeset/             四个公开包的统一版本配置
-.github/workflows/      CI、手动发布和文档部署
-```
-
-四个发布包的 `files` 仅包含 `dist`、README 和 LICENSE；支持 ESM、CJS 及各自的类型声明。CLI 提供 `bubbles-i18n` 命令。React/Vue 包依赖独立的 core，框架作为 peer，不内嵌另一份框架或核心状态实现。MIT 许可证保留源项目版权。
-
-## 发布
-
-首次发布使用当前 `0.0.1`，完成 npm 登录及 `@bubblesjs` scope 权限确认后执行 `pnpm release`。后续改动通过 Changesets 记录，四个包在 fixed 组中统一维护版本。
+文档默认运行在 `http://localhost:5174`。首次运行 Playground，先构建本地依赖，再启动开发服务：
 
 ```bash
-# 首次发布：确认账号与 scope 权限，然后执行
-npm login
-npm whoami
-pnpm release
-
-# 后续版本
-pnpm changeset
-pnpm version-packages
-pnpm release
+pnpm --filter "playground^..." build
+pnpm dev
 ```
 
-实际仓库地址确定后，填写各包的 `repository`、`homepage` 和 `bugs`。此仓库未预填模板仓库地址；这些字段不是 npm 发布必需项。
+Playground 默认端口为 5173，展示 React / Vue 的全局与局部国际化示例；运行方式和源码说明见 [Playground README](apps/playground/README.md)。
 
-CI 在 Windows 和 Linux 上执行 `pnpm ready`。Release 工作流在推送到 `main` 时自动运行（也支持手动触发）；配置 `NPM_TOKEN` 后可发布，未配置时只运行版本 PR 流程。文档工作流手动部署 GitHub Pages，通过 `DOCS_BASE` 设置部署子路径。
+| 命令                                           | 用途                                           |
+| ---------------------------------------------- | ---------------------------------------------- |
+| `pnpm test` / `pnpm typecheck`                 | 单元测试与类型检查                             |
+| `pnpm lint` / `pnpm format:check`              | 代码与格式检查                                 |
+| `pnpm docs:build`                              | 构建静态文档                                   |
+| `pnpm build`                                   | 构建所有包、应用与文档                         |
+| `pnpm verify:packages` / `pnpm verify:release` | 验证本地产物和隔离安装的发布 tarball，需先构建 |
+| `pnpm ready`                                   | 完整质量检查、构建及产物验证，不执行发布       |
 
-详见 [版本与发布](apps/docs/guide/release.md) 和 [工作区约定](apps/docs/guide/workspace.md)。
+四个公开包支持 ESM、CommonJS 和 TypeScript 声明，发布内容为 `dist`、README 和 LICENSE。根项目、docs 与 playground 为私有工作区。MIT 许可证。

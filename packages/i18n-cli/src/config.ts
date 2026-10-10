@@ -1,7 +1,13 @@
+export interface I18nExcelConfig {
+  file: string;
+  sheet?: string;
+}
+
 export interface I18nProjectConfig {
-  include: readonly string[];
+  include?: readonly string[];
   exclude?: readonly string[];
   catalogs: Readonly<Record<string, string>>;
+  excel?: I18nExcelConfig;
 }
 
 export interface I18nConfig {

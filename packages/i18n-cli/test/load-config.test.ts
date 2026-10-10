@@ -79,6 +79,27 @@ describe("loadConfig", () => {
     expect(loaded.config).toEqual(validConfig);
   });
 
+  it("loads an Excel-only project without injecting a default sheet or scan rules", async () => {
+    const config = {
+      projects: {
+        web: {
+          catalogs: { en_US: "locales/en_US.json" },
+          excel: { file: "translations/web.xlsx" },
+        },
+      },
+    };
+    await writeFile(
+      join(temporaryDirectory.path, "i18n.config.mjs"),
+      `export default ${JSON.stringify(config)}`,
+      "utf8",
+    );
+
+    const loaded = await loadConfig({ cwd: temporaryDirectory.path });
+
+    expect(loaded.config).toEqual(config);
+    expect(loaded.rootDir).toBe(temporaryDirectory.path);
+  });
+
   it("reports the searched directory and supported names when discovery fails", async () => {
     await expect(loadConfig({ cwd: temporaryDirectory.path })).rejects.toThrowError(
       ConfigNotFoundError,
@@ -130,10 +151,79 @@ describe("validateConfig", () => {
   });
 
   it.each([
+    undefined,
+    { file: "translations/web.xlsx" },
+    { file: "translations/web.XLSX", sheet: "translations" },
+    { file: "translations/web.xlsx", sheet: "翻译表 with spaces" },
+    { file: "translations/web.xlsx", sheet: "a".repeat(31) },
+  ])("accepts optional Excel settings and omitted include %#", (excel) => {
+    const config = {
+      projects: {
+        web: { catalogs: { en_US: "locales/en_US.json" }, excel },
+      },
+    };
+
+    expect(validateConfig(config)).toBe(config);
+  });
+
+  const invalidExcelSettings: [unknown, string][] = [
+    [null, 'projects["web"].excel must be an object'],
+    [[], 'projects["web"].excel must be an object'],
+    ["translations.xlsx", 'projects["web"].excel must be an object'],
+    [{}, 'projects["web"].excel.file must be a non-empty string'],
+    [{ file: " " }, 'projects["web"].excel.file must be a non-empty string'],
+    [{ file: 1 }, 'projects["web"].excel.file must be a non-empty string'],
+    [{ file: "translations.xls" }, 'projects["web"].excel.file must point to an .xlsx file'],
+    [{ file: "translations.json" }, 'projects["web"].excel.file must point to an .xlsx file'],
+    [
+      { file: "translations.xlsx", sheet: "" },
+      'projects["web"].excel.sheet must be a non-empty string',
+    ],
+    [
+      { file: "translations.xlsx", sheet: " " },
+      'projects["web"].excel.sheet must be a non-empty string',
+    ],
+    [
+      { file: "translations.xlsx", sheet: null },
+      'projects["web"].excel.sheet must be a non-empty string',
+    ],
+    [
+      { file: "translations.xlsx", sheet: "a".repeat(32) },
+      'projects["web"].excel.sheet must be a valid Excel sheet name',
+    ],
+    [
+      { file: "translations.xlsx", sheet: "'translations" },
+      'projects["web"].excel.sheet must be a valid Excel sheet name',
+    ],
+    [
+      { file: "translations.xlsx", sheet: "translations'" },
+      'projects["web"].excel.sheet must be a valid Excel sheet name',
+    ],
+    ...["[", "]", ":", "*", "?", "/", "\\"].map((character): [unknown, string] => [
+      { file: "translations.xlsx", sheet: `translations${character}` },
+      'projects["web"].excel.sheet must be a valid Excel sheet name',
+    ]),
+  ];
+  it.each(invalidExcelSettings)("rejects invalid Excel settings %#", (excel, message) => {
+    const config = {
+      projects: {
+        web: { catalogs: { en_US: "locales/en_US.json" }, excel },
+      },
+    };
+
+    expect(() => validateConfig(config, "test.config.ts")).toThrowError(ConfigValidationError);
+    expect(() => validateConfig(config, "test.config.ts")).toThrow(message);
+  });
+
+  it.each([
     [undefined, "the default export must be an object"],
     [{}, "projects must be a non-empty object"],
     [{ projects: {} }, "projects must be a non-empty object"],
     [{ projects: { web: null } }, 'projects["web"] must be an object'],
+    [
+      { projects: { web: { include: "src/**/*.ts", catalogs: { en_US: "en.json" } } } },
+      'projects["web"].include must be an array of non-empty strings',
+    ],
     [
       { projects: { web: { include: [], catalogs: { en_US: "en.json" } } } },
       'projects["web"].include must be a non-empty array of strings',

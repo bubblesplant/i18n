@@ -404,6 +404,28 @@
   }
 }
 
+.bubbles-workflow {
+  max-width: 1152px;
+  margin: 0 auto;
+  padding: 0 24px 28px;
+  text-align: center;
+}
+.bubbles-workflow h2 {
+  margin: 0 0 12px;
+  font-size: 24px;
+  font-weight: 650;
+  line-height: 1.5;
+}
+.bubbles-workflow p {
+  margin: 0 0 12px;
+  color: var(--vp-c-text-2);
+  font-size: 14px;
+  line-height: 1.9;
+}
+.bubbles-workflow a {
+  color: var(--vp-c-brand-1);
+  font-size: 14px;
+}
 .bubbles-features {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

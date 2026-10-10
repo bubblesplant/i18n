@@ -1,0 +1,10 @@
+{
+  "项目工作区": "Project workspace",
+  "欢迎，{name}！": "Hello, {name}!",
+  "这里的内容使用项目自己的语言。": "This content uses the project's own language.",
+  "进行中的任务": "Active tasks",
+  "待审核": "In review",
+  "创建任务": "Create task",
+  "已创建 {count} 个任务": "Tasks created: {count}",
+  "当前语言": "Current language"
+}

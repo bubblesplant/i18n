@@ -1,5 +1,5 @@
 import { stat } from "node:fs/promises";
-import { dirname, isAbsolute, resolve } from "node:path";
+import { dirname, extname, isAbsolute, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import type { I18nConfig } from "./config.ts";
@@ -77,7 +77,7 @@ export async function loadConfig(options: LoadConfigOptions = {}): Promise<Loade
   };
 }
 
-/** 校验项目、扫描规则和语言包路径的结构，非法配置抛出带字段位置的 ConfigValidationError。 */
+/** 校验项目、可选扫描规则和 JSON / Excel 路径，非法配置抛出带字段位置的 ConfigValidationError。 */
 export function validateConfig(value: unknown, configPath = "<config>"): I18nConfig {
   const prefix = `Invalid i18n config at "${configPath}"`;
 
@@ -100,10 +100,16 @@ export function validateConfig(value: unknown, configPath = "<config>"): I18nCon
       throw new ConfigValidationError(`${prefix}: ${projectPath} must be an object`);
     }
 
-    validateStringArray(project.include, `${projectPath}.include`, prefix, { nonEmpty: true });
+    if (project.include !== undefined) {
+      validateStringArray(project.include, `${projectPath}.include`, prefix, { nonEmpty: true });
+    }
 
     if (project.exclude !== undefined) {
       validateStringArray(project.exclude, `${projectPath}.exclude`, prefix);
+    }
+
+    if (project.excel !== undefined) {
+      validateExcelConfig(project.excel, `${projectPath}.excel`, prefix);
     }
 
     const catalogs = project.catalogs;
@@ -200,6 +206,33 @@ function validateStringArray(
   for (const [index, item] of value.entries()) {
     if (typeof item !== "string" || item.trim() === "") {
       throw new ConfigValidationError(`${prefix}: ${path}[${index}] must be a non-empty string`);
+    }
+  }
+}
+
+/** 校验 Excel 文件和可选工作表名称，默认工作表由执行转换的命令确定。 */
+function validateExcelConfig(value: unknown, path: string, prefix: string): void {
+  if (!isRecord(value)) {
+    throw new ConfigValidationError(`${prefix}: ${path} must be an object`);
+  }
+
+  if (typeof value.file !== "string" || value.file.trim() === "") {
+    throw new ConfigValidationError(`${prefix}: ${path}.file must be a non-empty string`);
+  }
+
+  if (extname(value.file).toLowerCase() !== ".xlsx") {
+    throw new ConfigValidationError(`${prefix}: ${path}.file must point to an .xlsx file`);
+  }
+
+  if (value.sheet !== undefined) {
+    if (typeof value.sheet !== "string" || value.sheet.trim() === "") {
+      throw new ConfigValidationError(`${prefix}: ${path}.sheet must be a non-empty string`);
+    }
+
+    if (value.sheet.length > 31 || /[[\]:*?/\\]/u.test(value.sheet) || /^'|'$/u.test(value.sheet)) {
+      throw new ConfigValidationError(
+        `${prefix}: ${path}.sheet must be a valid Excel sheet name (at most 31 characters, without []:*?/\\ or leading/trailing apostrophes)`,
+      );
     }
   }
 }

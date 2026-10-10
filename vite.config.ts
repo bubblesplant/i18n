@@ -2,10 +2,10 @@ import { defineConfig } from "vite-plus";
 
 export default defineConfig({
   staged: {
-    "*.{js,jsx,ts,tsx,mjs,cjs,mts,cts,json,jsonc,yaml,yml,md,css,scss}": "vp check --fix",
-    "*.vue": ["vp fmt --write", "eslint --fix --max-warnings=0"],
+    "*.{js,jsx,ts,tsx,mjs,cjs,mts,cts,vue,json,jsonc,yaml,yml,md,css,scss}": "vp check --fix",
   },
   fmt: {
+    sortPackageJson: true,
     ignorePatterns: [
       "**/dist/**",
       "**/coverage/**",
@@ -19,8 +19,8 @@ export default defineConfig({
       "**/coverage/**",
       "**/.vitepress/cache/**",
       "**/.vitepress/dist/**",
-      "**/*.vue",
     ],
+    plugins: ["typescript", "unicorn", "oxc", "vue"],
     jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
     rules: { "vite-plus/prefer-vite-plus-imports": "error" },
     options: { typeAware: true, typeCheck: true },

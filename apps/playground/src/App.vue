@@ -1,258 +1,211 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import type { ExampleProps } from "./examples/types";
+import { computed, onScopeDispose, ref } from "vue";
+import ReactExample from "./examples/ReactExample.vue";
+import VueExample from "./examples/VueExample.vue";
+import { localeLoads } from "./i18n";
 
-const inputValue = ref<number | string>(128);
-const minimum = ref<number | string>(0);
-const maximum = ref<number | string>(100);
-const presets = [
-  { label: "低于下限", value: -24 },
-  { label: "落在区间", value: 48 },
-  { label: "高于上限", value: 128 },
-];
+const props = defineProps<ExampleProps>();
+const framework = ref<"React" | "Vue">("React");
+const globalLocale = ref(props.globalStore.getState().locale);
+const projectLocale = ref(props.projectStore.getState().locale);
 
-function isValidNumber(value: number | string) {
-  return value !== "" && Number.isFinite(Number(value)) && Math.abs(Number(value)) <= 1000;
-}
-
-const error = computed(() => {
-  if (![inputValue.value, minimum.value, maximum.value].every(isValidNumber)) {
-    return "请为三个输入填写 −1000 到 1000 之间的数值。";
-  }
-  if (Number(minimum.value) > Number(maximum.value)) {
-    return "下限不能大于上限，请调整区间。";
-  }
-  return "";
+const unsubscribeGlobal = props.globalStore.subscribe(() => {
+  globalLocale.value = props.globalStore.getState().locale;
+});
+const unsubscribeProject = props.projectStore.subscribe(() => {
+  projectLocale.value = props.projectStore.getState().locale;
+});
+onScopeDispose(() => {
+  unsubscribeGlobal();
+  unsubscribeProject();
 });
 
-const result = computed(() =>
-  error.value
-    ? null
-    : Math.min(Number(maximum.value), Math.max(Number(minimum.value), Number(inputValue.value))),
+const loadedCount = computed(
+  () => localeLoads.filter((record) => record.status === "loaded").length,
 );
-
-const scale = computed(() => {
-  if (error.value) return { start: -40, end: 160 };
-  const start = Math.min(Number(inputValue.value), Number(minimum.value), 0);
-  const end = Math.max(Number(inputValue.value), Number(maximum.value), 100);
-  const padding = Math.max((end - start) * 0.12, 10);
-  return { start: start - padding, end: end + padding };
-});
-
-function position(value: number | string) {
-  return `${((Number(value) - scale.value.start) / (scale.value.end - scale.value.start)) * 100}%`;
-}
-
-function displayNumber(value: number) {
-  return String(value);
-}
-
-const ticks = computed(() =>
-  Array.from({ length: 9 }, (_, index) => ({
-    position: `${(index / 8) * 100}%`,
-    label: new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 1 }).format(
-      scale.value.start + ((scale.value.end - scale.value.start) * index) / 8,
-    ),
-  })),
+const statusLabels = { idle: "尚未加载", loading: "加载中", loaded: "已加载", error: "加载失败" };
+const initCode = [
+  'import { createI18n } from "@bubblesjs/i18n-core";',
+  'import zhCN from "./locales/zh-CN.json";',
+  "",
+  "const store = createI18n({",
+  '  locale: "zh-CN",',
+  "  message: zhCN,",
+  '  loaderMessage: async (locale = "zh-CN") =>',
+  `    (await import(\`./locales/\${locale}.json\`)).default,`,
+  "});",
+].join("\n");
+const providerCode = computed(() =>
+  framework.value === "React"
+    ? `<I18nProvider store={globalStore}>
+  <GlobalContent />
+  <I18nProvider store={projectStore}>
+    <ProjectContent />
+  </I18nProvider>
+</I18nProvider>`
+    : `<I18nProvider :store="globalStore">
+  <GlobalContent />
+  <I18nProvider :store="projectStore">
+    <ProjectContent />
+  </I18nProvider>
+</I18nProvider>`,
 );
-
-const resultHint = computed(() => {
-  if (result.value === null) return "填写有效数值后查看结果";
-  if (Number(inputValue.value) < Number(minimum.value)) return "低于下限，返回区间起点";
-  if (Number(inputValue.value) > Number(maximum.value)) return "高于上限，返回区间终点";
-  return "位于区间内，保留原值";
-});
-
-function selectPreset(value: number) {
-  inputValue.value = value;
-  minimum.value = 0;
-  maximum.value = 100;
-}
 </script>
 
 <template>
-  <div class="workbench">
+  <div class="playground-shell">
     <header class="site-header">
-      <a class="brand" href="#main" aria-label="Mono 开发工作台，跳至主要内容">
-        <span class="brand-symbol" aria-hidden="true"><span /><span /><span /></span>
-        <span class="brand-name">mono<span class="brand-dot">.</span></span>
-        <span class="brand-caption">开发工作台</span>
+      <a class="brand" href="/" aria-label="BubblesJS i18n Playground 首页">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>BubblesJS <strong>i18n</strong></span>
       </a>
-      <div class="workspace-tag"><span aria-hidden="true" />Vue · pnpm workspace</div>
+      <span class="header-label">PLAYGROUND</span>
+      <nav class="header-links" aria-label="资源链接">
+        <a href="http://localhost:5174/guide/getting-started" target="_blank" rel="noreferrer"
+          >使用文档 ↗</a
+        >
+        <a href="https://github.com/bubblesplant/i18n" target="_blank" rel="noreferrer">GitHub ↗</a>
+      </nav>
     </header>
 
-    <main id="main">
+    <main>
       <section class="intro" aria-labelledby="page-title">
-        <p class="eyebrow">你的下一个项目，从这里开始</p>
-        <h1 id="page-title">应用各司其职，<br />代码共同生长。</h1>
+        <p class="eyebrow">一个加载器，两种作用域</p>
+        <h1 id="page-title">语言按需加载，<br class="mobile-break" />项目独立切换。</h1>
         <p class="intro-copy">
-          在应用中验证交互，在独立包中维护可复用能力。这个工作台提供本地数值示例，文档记录国际化包的使用约定。
+          导入默认语言，显式配置 locale、message 和加载器，Provider
+          提供容器，切换时再加载目标语言包。
         </p>
-        <a class="text-link" href="#workspace">查看工作区分工 <span aria-hidden="true">↗</span></a>
       </section>
 
-      <section class="demo-panel" aria-labelledby="demo-title">
-        <div class="panel-heading">
-          <div>
-            <p class="eyebrow">Vue · 本地交互演示</p>
-            <h2 id="demo-title">把数值留在区间内。</h2>
-          </div>
-          <code class="package-tag">Math.min / Math.max</code>
-        </div>
-        <p class="demo-description">
-          调整数值与上下限，看看 <code>Math.min()</code> 与 <code>Math.max()</code> 如何约束边界。
-        </p>
-
-        <div class="presets" role="group" aria-label="选择示例数值">
-          <button
-            v-for="preset in presets"
-            :key="preset.value"
-            type="button"
-            :aria-pressed="
-              Number(inputValue) === preset.value &&
-              Number(minimum) === 0 &&
-              Number(maximum) === 100
-            "
-            @click="selectPreset(preset.value)"
-          >
-            {{ preset.label }}
+      <div class="demo-toolbar">
+        <div class="framework-switch" role="group" aria-label="示例框架">
+          <button type="button" :aria-pressed="framework === 'React'" @click="framework = 'React'">
+            React
+          </button>
+          <button type="button" :aria-pressed="framework === 'Vue'" @click="framework = 'Vue'">
+            Vue
           </button>
         </div>
+        <p>同一组容器 · 切换框架保留语言状态</p>
+      </div>
 
-        <div class="number-fields">
-          <div class="number-field input-field">
-            <label for="value">输入值 <span>value</span></label>
-            <input
-              id="value"
-              v-model="inputValue"
-              type="number"
-              min="-1000"
-              max="1000"
-              step="any"
-              :aria-invalid="!isValidNumber(inputValue)"
-              aria-describedby="demo-help demo-error"
-            />
+      <div class="workbench">
+        <section class="demo-panel" aria-labelledby="demo-title">
+          <header class="panel-heading">
+            <h2 id="demo-title"><span class="live-dot" aria-hidden="true"></span>运行示例</h2>
+            <span>{{ framework }} adapter</span>
+          </header>
+          <div class="scope-state" aria-live="polite">
+            <span
+              ><i class="global-dot"></i>全局 <code>{{ globalLocale }}</code></span
+            >
+            <span
+              ><i class="project-dot"></i>局部 <code>{{ projectLocale }}</code></span
+            >
           </div>
-          <div class="number-field">
-            <label for="minimum">下限 <span>min</span></label>
-            <input
-              id="minimum"
-              v-model="minimum"
-              type="number"
-              min="-1000"
-              max="1000"
-              step="any"
-              :aria-invalid="!isValidNumber(minimum) || Number(minimum) > Number(maximum)"
-              aria-describedby="demo-help demo-error"
+          <div class="demo-body">
+            <ReactExample
+              v-if="framework === 'React'"
+              :global-store="globalStore"
+              :project-store="projectStore"
             />
+            <VueExample v-else :global-store="globalStore" :project-store="projectStore" />
           </div>
-          <div class="number-field">
-            <label for="maximum">上限 <span>max</span></label>
-            <input
-              id="maximum"
-              v-model="maximum"
-              type="number"
-              min="-1000"
-              max="1000"
-              step="any"
-              :aria-invalid="!isValidNumber(maximum) || Number(minimum) > Number(maximum)"
-              aria-describedby="demo-help demo-error"
-            />
-          </div>
-        </div>
-        <p id="demo-help" class="field-help">
-          支持 −1000 到 1000，可输入小数；下限应小于或等于上限。
-        </p>
-        <p id="demo-error" class="field-error" role="status">
-          {{ error }}
-        </p>
+          <p class="demo-note">
+            试试只切换项目语言，再创建一个任务。外层语言不受影响，任务状态也会保留。
+          </p>
+        </section>
 
-        <div class="ruler" aria-hidden="true">
-          <div
-            v-if="!error"
-            class="allowed-range"
-            :style="{
-              left: position(minimum),
-              width: `${Number.parseFloat(position(maximum)) - Number.parseFloat(position(minimum))}%`,
-            }"
-          />
-          <div class="ruler-line" />
-          <div
-            v-for="tick in ticks"
-            :key="tick.position"
-            class="ruler-tick"
-            :style="{ left: tick.position }"
-          >
-            <span>{{ tick.label }}</span>
-          </div>
-          <div v-if="!error" class="input-marker" :style="{ left: position(inputValue) }">
-            <span>输入 {{ inputValue }}</span
-            ><i />
-          </div>
-          <div v-if="result !== null" class="result-marker" :style="{ left: position(result) }">
-            <i /><span>结果 {{ displayNumber(result) }}</span>
-          </div>
-        </div>
+        <aside class="implementation" aria-label="接入思路">
+          <section class="code-section">
+            <div class="step-heading">
+              <span>01</span>
+              <h2>默认语言先加载</h2>
+            </div>
+            <p>只静态导入中文，<code>createI18n</code> 同步创建容器；英文在切换时动态加载。</p>
+            <pre><code>{{ initCode }}</code></pre>
+          </section>
+          <section class="code-section">
+            <div class="step-heading">
+              <span>02</span>
+              <h2>局部使用独立容器</h2>
+            </div>
+            <p>
+              给项目创建自己的 store，在子树内嵌套 Provider。后代的
+              <code>useI18n()</code> 读取最近的容器。
+            </p>
+            <pre><code>{{ providerCode }}</code></pre>
+          </section>
+          <section class="switch-explanation">
+            <div class="step-heading">
+              <span>03</span>
+              <h2>切换再调用加载器</h2>
+            </div>
+            <code>await loadLocale("en-US")</code>
+            <p>加载目标 JSON → 提交语言与词条 → 订阅组件更新。</p>
+          </section>
+        </aside>
+      </div>
 
-        <div class="result-row" aria-live="polite" aria-atomic="true">
+      <section class="load-panel" aria-labelledby="load-title">
+        <header class="load-heading">
           <div>
-            <span class="result-label">返回值</span
-            ><output for="value minimum maximum">{{
-              result === null ? "—" : displayNumber(result)
-            }}</output>
+            <p class="eyebrow">LOADER MESSAGE</p>
+            <h2 id="load-title">语言包加载记录</h2>
           </div>
-          <p>{{ resultHint }}</p>
+          <span class="load-count"
+            ><strong>{{ loadedCount }}</strong> / 4 个语言包已加载</span
+          >
+        </header>
+        <p class="load-description">
+          默认中文已静态导入，首屏加载器调用均为 0。点击对应区域的 English，观察英文包首次加载。
+        </p>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">作用域</th>
+                <th scope="col">语言包</th>
+                <th scope="col">状态</th>
+                <th scope="col">加载器调用</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="record in localeLoads"
+                :key="`${record.scope}-${record.locale}`"
+                :data-scope="record.scope"
+                :data-locale="record.locale"
+              >
+                <td>
+                  <span class="table-scope" :class="record.scope">{{
+                    record.scope === "global" ? "全局应用" : "局部项目"
+                  }}</span>
+                </td>
+                <td>
+                  <code>{{ record.scope }}/{{ record.locale }}.json</code>
+                </td>
+                <td>
+                  <span class="load-status" :class="record.status">{{
+                    statusLabels[record.status]
+                  }}</span>
+                </td>
+                <td>{{ record.calls }} 次</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-        <div class="code-line">
-          <code
-            >Math.min({{ maximum === "" ? "max" : maximum }}, Math.max({{
-              minimum === "" ? "min" : minimum
-            }}, {{ inputValue === "" ? "value" : inputValue }}))</code
-          ><span>本地数值运算</span>
-        </div>
-      </section>
-
-      <section id="workspace" class="workspace-section" aria-labelledby="workspace-title">
-        <div class="section-heading">
-          <h2 id="workspace-title">一个仓库，清楚的分工。</h2>
-          <p>应用独立运行，包与配置各有边界。</p>
-        </div>
-        <div class="workspace-grid">
-          <article class="workspace-item">
-            <span class="folder-label">apps/</span>
-            <h3>让想法可见</h3>
-            <p>Playground 展示本地交互，Docs 说明国际化 API。两个应用可独立开发与构建。</p>
-            <code>playground · docs</code>
-          </article>
-          <article class="workspace-item">
-            <span class="folder-label">packages/</span>
-            <h3>让代码可复用</h3>
-            <p>核心翻译、React / Vue 适配和词条 CLI 分别维护，按需构建、测试与发布。</p>
-            <code>i18n-core · i18n-react · i18n-vue · i18n-cli</code>
-          </article>
-          <article class="workspace-item">
-            <span class="folder-label">tsconfig/</span>
-            <h3>让约定保持一致</h3>
-            <p>集中维护 TypeScript 配置。格式、检查与任务编排由根目录统一管理。</p>
-            <code>tsconfig</code>
-          </article>
-        </div>
-      </section>
-
-      <section class="next-step" aria-labelledby="next-title">
-        <div>
-          <p class="eyebrow">接下来</p>
-          <h2 id="next-title">从一个本地交互开始。</h2>
-          <p>编辑 <code>apps/playground/src/App.vue</code>，查看数值演示的变化。</p>
-        </div>
-        <div class="command-list">
-          <div><span>运行工作台</span><code>pnpm dev</code></div>
-          <div><span>检查整个仓库</span><code>pnpm check</code></div>
-        </div>
+        <p class="load-footnote">
+          默认中文的静态导入不计为加载器调用；切换时记录 loaderMessage 的调用次数。动态 import
+          可复用浏览器的模块缓存。
+        </p>
       </section>
     </main>
 
     <footer class="site-footer">
-      <span>少一点重复，多一点专注。</span><span>MONOREPO STARTER / PLAYGROUND</span>
+      <span>BubblesJS i18n · core / react / vue</span><span>默认加载 → 按需切换 → 局部隔离</span>
     </footer>
   </div>
 </template>
