@@ -33,6 +33,9 @@ describe("Excel CLI commands", () => {
       frenchOnly: { en: null, fr: "Français" },
     });
     expect(await readFiles(root, ["en.json", "fr.json"])).toEqual(sources);
+    await expect(access(join(root, ".bubbles-i18n", "report.json"))).rejects.toMatchObject({
+      code: "ENOENT",
+    });
   });
 
   it("imports an Excel-only project into missing JSON using its configured sheet", async () => {
@@ -58,6 +61,9 @@ describe("Excel CLI commands", () => {
 
     expect(await readJson(root, "locales/en.json")).toEqual({ greeting: "Hello" });
     expect(await readFile(join(root, "web.xlsx"))).toEqual(source);
+    await expect(access(join(root, ".bubbles-i18n", "report.json"))).rejects.toMatchObject({
+      code: "ENOENT",
+    });
     const errors: string[] = [];
     expect(
       await main(["sync"], {

@@ -150,6 +150,22 @@ describe("validateConfig", () => {
     expect(validateConfig(validConfig)).toBe(validConfig);
   });
 
+  it.each([undefined, false, "reports/scan.json"])(
+    "accepts omitted, disabled or custom JSON reports: %s",
+    (report) => {
+      const config = { ...validConfig, report };
+
+      expect(validateConfig(config)).toBe(config);
+    },
+  );
+
+  it.each([true, null, "", " ", 1, {}])("rejects invalid JSON report settings: %s", (report) => {
+    expect(() => validateConfig({ ...validConfig, report })).toThrowError(ConfigValidationError);
+    expect(() => validateConfig({ ...validConfig, report })).toThrow(
+      "report must be false or a non-empty string",
+    );
+  });
+
   it.each([
     undefined,
     { file: "translations/web.xlsx" },
@@ -261,13 +277,6 @@ describe("validateConfig", () => {
         projects: { web: { include: ["src/**/*.ts"], catalogs: { en_US: "en.json" } } },
       },
       "callNames[0] must be a non-empty string",
-    ],
-    [
-      {
-        projects: { web: { include: ["src/**/*.ts"], catalogs: { en_US: "en.json" } } },
-        report: "",
-      },
-      "report must be a non-empty string",
     ],
   ])("rejects invalid config %#", (config, message) => {
     expect(() => validateConfig(config, "test.config.ts")).toThrowError(ConfigValidationError);

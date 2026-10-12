@@ -17,7 +17,7 @@ check：只检查源码 key 与 JSON 的完整性
 | 命令                        | 来源                       | 写入目标                | 默认 Markdown 报告                      |
 | --------------------------- | -------------------------- | ----------------------- | --------------------------------------- |
 | `bubbles-i18n sync`         | 项目源码中扫描到的静态 key | 项目的各语言 JSON       | `.bubbles-i18n/reports/sync.md`         |
-| `bubbles-i18n check`        | 项目源码与各语言 JSON      | 不写语言包              | 保持可选扫描 JSON 报告行为              |
+| `bubbles-i18n check`        | 项目源码与各语言 JSON      | 不写语言包              | 无；默认写扫描 JSON 报告                |
 | `bubbles-i18n excel export` | 项目的 JSON catalogs       | 项目的 Excel 翻译 sheet | `.bubbles-i18n/reports/excel-export.md` |
 | `bubbles-i18n excel import` | 项目的 Excel 翻译 sheet    | 项目的 JSON catalogs    | `.bubbles-i18n/reports/excel-import.md` |
 
@@ -52,7 +52,9 @@ export default defineConfig({
       },
     },
   },
-  report: ".bubbles-i18n/report.json",
+  // 默认写入 .bubbles-i18n/report.json；可选择以下一种覆盖方式：
+  // report: false, // 关闭扫描 JSON 报告
+  // report: "reports/i18n.json", // 自定义扫描 JSON 报告路径
 });
 ```
 
@@ -60,7 +62,7 @@ Excel 配置放在 `projects.<name>.excel`，直接复用同项目的 `catalogs`
 
 扫描所选项目必须配置非空 `include`；只维护 Excel 的项目可以省略 `include`。Excel 所选项目必须配置 `excel`。不传 `--project` 时默认选择全部项目，不会自动跳过缺少用途配置的项目；不符合当前命令要求时返回 `2`，并提示用 `--project` 选择适用项目。
 
-所有路径以配置文件所在目录为基准，包括 JSON、Excel、默认 Markdown 报告和配置中的扫描 JSON 报告。每个项目使用独立的 Excel 文件；不同项目 / locale 不共用同一个 JSON 输出文件。
+所有相对路径以配置文件所在目录为基准，包括 JSON、Excel、默认 Markdown 报告和扫描 JSON 报告。省略顶层 `report` 时，扫描 JSON 报告默认写入 `.bubbles-i18n/report.json`；设为 `false` 关闭，设为字符串自定义路径。每个项目使用独立的 Excel 文件；不同项目 / locale 不共用同一个 JSON 输出文件。
 
 ## 3. 表格结构与校验
 
@@ -95,7 +97,7 @@ Excel 配置放在 `projects.<name>.excel`，直接复用同项目的 `catalogs`
 | `--config <path>`      | 所有命令                        | 默认向上查找配置                                             |
 | `--project <name>`     | 所有业务命令                    | 可以重复；不传则全部项目                                     |
 | `--locale <locale>`    | Excel 导出 / 导入               | 可以重复；不传则项目全部语言                                 |
-| `--dry-run`            | `sync`、Excel 导出 / 导入       | 计算计划并写报告，不写 JSON / Excel 数据                     |
+| `--dry-run`            | `sync`、Excel 导出 / 导入       | 计算计划并写报告，不写 JSON 语言包 / Excel 数据              |
 | `--prune`              | `sync`、Excel 导出 / 导入       | 只删除目标端独有 key；Excel 必须显式传入至少一个 `--project` |
 | `--clean`              | `sync`                          | 与 `--prune` 相同的兼容写法，同时传入也只清理一次            |
 | `--allow-empty`        | `sync --prune` / `sync --clean` | 有可读取源码但静态 key 为空时，允许清空非空 JSON             |
@@ -201,7 +203,7 @@ pnpm exec bubbles-i18n excel import --project web --force --prefer json
 
 任意写入命令追加 `--dry-run` 都只生成计划与报告。预览仍进行格式和冲突校验，未解决冲突仍返回 `1`。
 
-## 7. 默认报告与扫描 JSON 兼容
+## 7. 默认报告与扫描 JSON 配置
 
 Markdown 报告自动写入配置目录下的 `.bubbles-i18n/reports/`，分别使用 `sync.md`、`excel-export.md`、`excel-import.md`。没有多余项时也输出本次结果。终端逐项提示并显示完整报告路径。
 
@@ -232,7 +234,7 @@ pnpm exec bubbles-i18n excel import --project web --locale en-US --prune
 
 这是两个 JSON 条目、一个不同的 key。动态 key 未被静态扫描提取时也可能出现在列表中，不能仅凭“多余”认定业务没有使用。
 
-原有顶层 `report` 仍是扫描的可选 JSON 报告配置，不改为 Markdown。`sync`、`sync --dry-run` 和 `check` 按配置写出；省略时不写此 JSON 报告，`sync` 的自动 Markdown 不受影响。Excel 命令不读取或写入这份扫描 JSON 报告。
+`sync`、`sync --dry-run` 和 `check` 默认将扫描 JSON 报告写入配置文件所在目录下的 `.bubbles-i18n/report.json`。顶层 `report` 省略时使用此默认路径，设为 `false` 关闭 JSON 报告，设为字符串自定义路径；相对路径以配置文件所在目录为基准。`report` 不影响自动 Markdown 报告；Excel 命令只生成 Markdown 报告，不读取或写入这份扫描 JSON 报告。
 
 扫描 JSON 报告中的 `added` 是缺失项，`unused` 是保留的多余项，`deleted` 是清理项；预览时这些变更列表表示计划。报告路径相对配置目录显示。
 
@@ -240,7 +242,7 @@ pnpm exec bubbles-i18n excel import --project web --locale en-US --prune
 
 先读取并校验全部所选项目，在内存中生成计划。普通转换任何项目存在值冲突时返回 `1`，全部项目的数据都不写；格式、配置或文件操作错误返回 `2`。同步成功返回 `0`。
 
-`--dry-run` 写报告，但不写 JSON / Excel，不创建数据临时文件或备份。扫描 JSON 使用同目录临时文件原子替换，沿用 BOM、换行、缩进与末尾换行。
+`--dry-run` 写报告，但不写 JSON 语言包 / Excel 数据，不创建数据临时文件或备份。扫描写入 JSON 语言包时使用同目录临时文件原子替换，沿用 BOM、换行、缩进与末尾换行。
 
 Excel 转换实际修改已有目标文件时，将其备份到目标同目录的 `.bubbles-i18n-backups/<runId>/<filename>`，备份路径记录在报告中。先准备全部数据临时文件与备份，再提交；提交失败时尽力回滚。多文件写入不具备真正事务保证，不能承诺任何文件操作失败都完全无变化。
 

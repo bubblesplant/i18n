@@ -34,11 +34,11 @@ describe("runCli", () => {
       '{\n  "保存": "保存成功",\n  "旧文案": "旧翻译"\n}\n',
       "utf8",
     );
-    await writeConfig(root);
+    await writeConfig(root, ".reports/i18n.json");
 
     const output: string[] = [];
     const exitCode = await runCli(["sync"], {
-      cwd: root,
+      cwd: join(root, "src"),
       stdout: (message) => output.push(message),
     });
 
@@ -62,6 +62,9 @@ describe("runCli", () => {
       ]),
     );
     expect(output.join("\n")).toContain("Project web: 1 source files, 2 keys.");
+    await expect(access(join(root, ".bubbles-i18n", "report.json"))).rejects.toMatchObject({
+      code: "ENOENT",
+    });
   });
 
   it("keeps translations for calls with comments when cleaning catalogs", async () => {
@@ -88,7 +91,7 @@ describe("runCli", () => {
       正常: "Normal",
       保留: "Keep translation",
     });
-    const report = JSON.parse(await readFile(join(root, ".reports", "i18n.json"), "utf8"));
+    const report = JSON.parse(await readFile(join(root, ".bubbles-i18n", "report.json"), "utf8"));
     expect(report.files).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -100,7 +103,7 @@ describe("runCli", () => {
     );
   });
 
-  it("checks without writing and can fail on unused keys", async () => {
+  it("checks without changing catalogs and writes the default report beside the config", async () => {
     const root = temporaryDirectory.path;
     await mkdir(join(root, "src"), { recursive: true });
     await mkdir(join(root, "locales"), { recursive: true });
@@ -117,8 +120,40 @@ describe("runCli", () => {
 
     expect(exitCode).toBe(1);
     expect(await readFile(join(root, "locales", "en_US.json"), "utf8")).toBe(before);
-    const report = JSON.parse(await readFile(join(root, ".reports", "i18n.json"), "utf8"));
+    const report = JSON.parse(await readFile(join(root, ".bubbles-i18n", "report.json"), "utf8"));
     expect(report).toMatchObject({ command: "check", dryRun: true });
+    await expect(access(join(root, "src", ".bubbles-i18n"))).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+    await expect(access(join(root, ".bubbles-i18n", "reports"))).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
+
+  it.each([
+    { args: ["sync"], writesMarkdown: true },
+    { args: ["sync", "--dry-run"], writesMarkdown: true },
+    { args: ["check"], writesMarkdown: false },
+  ])("report: false disables JSON reports for $args", async ({ args, writesMarkdown }) => {
+    const root = temporaryDirectory.path;
+    await mkdir(join(root, "src"), { recursive: true });
+    await mkdir(join(root, "locales"), { recursive: true });
+    await writeFile(join(root, "src", "app.ts"), "tr('used')\n", "utf8");
+    await writeFile(join(root, "locales", "en_US.json"), '{"used":"Used"}\n', "utf8");
+    await writeFile(join(root, "locales", "zh_CN.json"), '{"used":"使用"}\n', "utf8");
+    await writeConfig(root, false);
+
+    await expect(runCli(args, { cwd: root, stdout: () => undefined })).resolves.toBe(0);
+
+    await expect(access(join(root, ".bubbles-i18n", "report.json"))).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+    const markdownPath = join(root, ".bubbles-i18n", "reports", "sync.md");
+    if (writesMarkdown) {
+      expect(await readFile(markdownPath, "utf8")).toContain("bubbles-i18n generated report: sync");
+    } else {
+      await expect(access(markdownPath)).rejects.toMatchObject({ code: "ENOENT" });
+    }
   });
 
   it("refuses clean when include patterns match no source files", async () => {
@@ -206,6 +241,55 @@ describe("runCli", () => {
     ).rejects.toThrow('Unknown project "toString"');
   });
 
+  it("refuses to overwrite a non-report file at the default report path before syncing", async () => {
+    const root = temporaryDirectory.path;
+    await mkdir(join(root, "src"), { recursive: true });
+    await mkdir(join(root, "locales"), { recursive: true });
+    await mkdir(join(root, ".bubbles-i18n"), { recursive: true });
+    await writeFile(join(root, "src", "app.ts"), "tr('new')\n", "utf8");
+    const catalogPath = join(root, "locales", "en_US.json");
+    const catalogSource = '{"old":"Translation"}\n';
+    await writeFile(catalogPath, catalogSource, "utf8");
+    const reportPath = join(root, ".bubbles-i18n", "report.json");
+    const reportSource = '{"notes":"keep me"}\n';
+    await writeFile(reportPath, reportSource, "utf8");
+    await writeConfig(root);
+
+    await expect(runCli(["sync"], { cwd: root, stdout: () => undefined })).rejects.toThrow(
+      "Refusing to overwrite existing non-report file",
+    );
+
+    expect(await readFile(reportPath, "utf8")).toBe(reportSource);
+    expect(await readFile(catalogPath, "utf8")).toBe(catalogSource);
+    await expect(access(join(root, "locales", "zh_CN.json"))).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
+
+  it("refuses catalogs that collide with the default report path", async () => {
+    const root = temporaryDirectory.path;
+    await mkdir(join(root, "src"), { recursive: true });
+    await mkdir(join(root, ".bubbles-i18n"), { recursive: true });
+    await writeFile(join(root, "src", "app.ts"), "tr('new')\n", "utf8");
+    const catalogPath = join(root, ".bubbles-i18n", "report.json");
+    const catalogSource = '{"old":"Translation"}\n';
+    await writeFile(catalogPath, catalogSource, "utf8");
+    await writeFile(
+      join(root, "i18n.config.mjs"),
+      `export default {
+  projects: {
+    web: { include: ['src/**/*.ts'], catalogs: { en_US: '.bubbles-i18n/report.json' } }
+  }
+}\n`,
+      "utf8",
+    );
+
+    await expect(runCli(["sync"], { cwd: root, stdout: () => undefined })).rejects.toThrow(
+      "Report path must not overwrite a catalog",
+    );
+    expect(await readFile(catalogPath, "utf8")).toBe(catalogSource);
+  });
+
   it("allows stale keys by default in check and fails with --fail-on-stale", async () => {
     const root = temporaryDirectory.path;
     await mkdir(join(root, "src"), { recursive: true });
@@ -245,14 +329,17 @@ describe("runCli", () => {
     await writeConfig(root);
 
     await expect(
-      runCli(["sync", "--dry-run", "--clean"], { cwd: root, stdout: () => undefined }),
+      runCli(["sync", "--dry-run", "--clean"], {
+        cwd: join(root, "src"),
+        stdout: () => undefined,
+      }),
     ).resolves.toBe(0);
 
     expect(await readFile(existing, "utf8")).toBe(original);
     await expect(access(join(root, "locales", "zh_CN.json"))).rejects.toMatchObject({
       code: "ENOENT",
     });
-    const report = JSON.parse(await readFile(join(root, ".reports", "i18n.json"), "utf8"));
+    const report = JSON.parse(await readFile(join(root, ".bubbles-i18n", "report.json"), "utf8"));
     expect(report).toMatchObject({ command: "sync", dryRun: true, clean: true });
     expect(report.files).toContainEqual(
       expect.objectContaining({
@@ -340,8 +427,8 @@ describe("runCli", () => {
   });
 });
 
-/** 在测试根目录写入 ESM 配置，声明源码扫描规则、两种语言包及同步报告路径。 */
-async function writeConfig(root: string): Promise<void> {
+/** 在测试根目录写入 ESM 配置，可选择覆盖或关闭默认 JSON 报告。 */
+async function writeConfig(root: string, report?: string | false): Promise<void> {
   await writeFile(
     join(root, "i18n.config.mjs"),
     `export default {
@@ -353,8 +440,7 @@ async function writeConfig(root: string): Promise<void> {
         en_US: 'locales/en_US.json'
       }
     }
-  },
-  report: '.reports/i18n.json'
+  }${report === undefined ? "" : `,\n  report: ${JSON.stringify(report)}`}
 }\n`,
     "utf8",
   );

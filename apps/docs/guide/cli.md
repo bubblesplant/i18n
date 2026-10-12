@@ -52,21 +52,22 @@ export default defineConfig({
       },
     },
   },
-  // 可选：保留扫描流程的机器可读 JSON 报告。
-  report: ".bubbles-i18n/report.json",
+  // 默认写入 .bubbles-i18n/report.json；可选择以下一种覆盖方式：
+  // report: false, // 关闭扫描 JSON 报告
+  // report: "reports/i18n.json", // 自定义扫描 JSON 报告路径
 });
 ```
 
-| 字段                          | 含义                                                                     |
-| ----------------------------- | ------------------------------------------------------------------------ |
-| `callNames`                   | 扫描调用名，默认 `["tr"]`，例如 `["tr", "$t"]`                           |
-| `projects`                    | 至少一个项目，每个项目维护自己的语言包                                   |
-| `projects.<name>.include`     | 扫描时必需的非空 glob 列表；仅维护 Excel 时可省略                        |
-| `projects.<name>.exclude`     | 扫描时额外排除的 glob 列表                                               |
-| `projects.<name>.catalogs`    | locale 到 JSON 路径的映射；JSON 必须是扁平字符串对象                     |
-| `projects.<name>.excel.file`  | Excel 转换时必需，一个项目对应一个 `.xlsx`                               |
-| `projects.<name>.excel.sheet` | CLI 管理的翻译 sheet 名，默认 `translations`                             |
-| `report`                      | 可选扫描 JSON 报告路径；不影响自动 Markdown 报告，Excel 命令不使用此配置 |
+| 字段                          | 含义                                                                                                                   |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `callNames`                   | 扫描调用名，默认 `["tr"]`，例如 `["tr", "$t"]`                                                                         |
+| `projects`                    | 至少一个项目，每个项目维护自己的语言包                                                                                 |
+| `projects.<name>.include`     | 扫描时必需的非空 glob 列表；仅维护 Excel 时可省略                                                                      |
+| `projects.<name>.exclude`     | 扫描时额外排除的 glob 列表                                                                                             |
+| `projects.<name>.catalogs`    | locale 到 JSON 路径的映射；JSON 必须是扁平字符串对象                                                                   |
+| `projects.<name>.excel.file`  | Excel 转换时必需，一个项目对应一个 `.xlsx`                                                                             |
+| `projects.<name>.excel.sheet` | CLI 管理的翻译 sheet 名，默认 `translations`                                                                           |
+| `report`                      | 省略时写 `.bubbles-i18n/report.json`；`false` 关闭，字符串自定义路径；不影响自动 Markdown 报告，Excel 命令不使用此配置 |
 
 Excel 直接复用项目的 `catalogs`，不用重复配置 JSON 路径。只维护 Excel 的项目可以省略 `include`：
 
@@ -168,7 +169,7 @@ pnpm exec bubbles-i18n check --project web
 | `--config <path>`      | 所有命令                        | 指定配置文件                                           |
 | `--project <name>`     | 所有业务命令                    | 选择项目，可以重复传入；默认全部                       |
 | `--locale <locale>`    | Excel 导出 / 导入               | 选择语言，可以重复传入；默认项目全部语言               |
-| `--dry-run`            | `sync`、Excel 导出 / 导入       | 生成预览报告，不写 JSON / Excel                        |
+| `--dry-run`            | `sync`、Excel 导出 / 导入       | 生成预览报告，不写 JSON 语言包 / Excel 数据            |
 | `--prune`              | `sync`、Excel 导出 / 导入       | 删除目标端独有 key；Excel 转换必须显式指定 `--project` |
 | `--clean`              | `sync`                          | 兼容旧用法，与 `--prune` 执行相同清理行为              |
 | `--allow-empty`        | `sync --prune` / `sync --clean` | 有可读取源码但未扫描到 key 时，明确允许清空语言包      |
@@ -220,7 +221,7 @@ pnpm exec bubbles-i18n excel import --project web --project admin --locale zh-CN
 | 删除 JSON 独有 key        | `bubbles-i18n excel import --project web --prune`                       | 无未解决值冲突时删除所选语言的多余 key               |
 | 采用 Excel 并清理 JSON    | `bubbles-i18n excel import --project web --force --prune`               | 分别解决值冲突和删除多余 key                         |
 | 采用 JSON 并清理 Excel    | `bubbles-i18n excel export --project web --force --prefer json --prune` | 分别解决值冲突和删除多余行                           |
-| 预览任何写入组合          | 上述写入命令追加 `--dry-run`                                            | 仍生成报告，不改 JSON / Excel                        |
+| 预览任何写入组合          | 上述写入命令追加 `--dry-run`                                            | 仍生成报告，不改 JSON 语言包 / Excel 数据            |
 | 检查完整性                | `bubbles-i18n check --project web`                                      | 缺失 key 返回 `1`，多余项默认不失败                  |
 | 检查完整性和多余项        | `bubbles-i18n check --project web --fail-on-stale`                      | 缺失或多余 key 都返回 `1`                            |
 
@@ -258,9 +259,9 @@ pnpm exec bubbles-i18n sync --project web --prune
 
 Excel 冲突报告还列出 key、locale、JSON 当前值、Excel 当前值和文件 / 单元格位置，并提供手动处理或指定优先方的办法。即使有冲突，`--prune` 也不能跳过它。
 
-现有 `report` 继续控制扫描的可选 JSON 报告：`sync`、`sync --dry-run` 和 `check` 会按配置写出，字段 `added`、`unused`、`deleted` 保持原有含义。省略 `report` 只取消此 JSON 报告，`sync` 仍自动生成 Markdown；Excel 命令不写这个扫描 JSON 报告。
+`sync`、`sync --dry-run` 和 `check` 默认将扫描 JSON 报告写入配置文件所在目录下的 `.bubbles-i18n/report.json`。顶层 `report` 省略时使用此默认路径，设为 `false` 关闭 JSON 报告，设为字符串自定义路径；相对路径以配置文件所在目录为基准。字段 `added`、`unused`、`deleted` 保持原有含义，预览时表示计划。`report` 不影响自动 Markdown 报告；Excel 命令只生成 Markdown 报告，不写扫描 JSON 报告。
 
-所有选中项目先校验、比较，再执行写入。扫描 JSON 通过同目录临时文件原子替换，沿用原文件的 BOM、换行、缩进和末尾换行；多个数据文件不构成跨文件事务。
+所有选中项目先校验、比较，再执行写入。扫描写入 JSON 语言包时通过同目录临时文件原子替换，沿用原文件的 BOM、换行、缩进和末尾换行；多个数据文件不构成跨文件事务。
 
 Excel 转换实际修改已有目标文件时，自动备份到目标同目录的 `.bubbles-i18n-backups/<runId>/<filename>`，报告列出备份路径。先准备全部临时文件和备份，再提交；提交失败时尽力回滚，不能保证所有文件操作失败都完全无变化。预览不创建数据临时文件或备份。
 

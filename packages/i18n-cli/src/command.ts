@@ -74,7 +74,7 @@ const helpText = `用法：
   --config <path>       使用指定配置文件，不再自动查找 i18n.config.ts。
   --project <name>      只处理指定项目；可以多次传入。
   --locale <locale>     Excel 命令只处理指定语言；可以多次传入。
-  --dry-run             生成预览报告，不修改 JSON/XLSX，不创建数据备份。
+  --dry-run             生成预览报告，不修改 JSON 语言包/XLSX，不创建数据备份。
   --prune               删除目标端独有 key；Excel 清理需显式 --project。
   --clean               sync --prune 的兼容参数。
   -f, --force           Excel 值冲突时允许执行，默认采用 Excel。
@@ -88,7 +88,8 @@ const helpText = `用法：
   扫描保留已有翻译；新增项默认使用 key 作为翻译值。
   Excel 普通命令有值冲突时退出 1，所有选中项目数据均不写入。
   多余 key 默认保留并逐项报告；--prune 不解决值冲突。
-  报告：.bubbles-i18n/reports/{sync,excel-export,excel-import}.md。`;
+  报告：.bubbles-i18n/reports/{sync,excel-export,excel-import}.md。
+  sync/check 默认写 .bubbles-i18n/report.json；配置 report: false 可关闭，字符串可自定义路径。`;
 
 /** 解析命令并执行词条扫描、语言包校验与可选同步，输出报告和摘要，返回命令退出码。 */
 export async function runCli(
@@ -116,9 +117,10 @@ export async function runCli(
       catalogs: resolveCatalogs(loaded.rootDir, project.catalogs),
     }),
   );
-  const reportPath = loaded.config.report
-    ? resolveFromRoot(loaded.rootDir, loaded.config.report)
-    : undefined;
+  const reportPath =
+    (options.command === "sync" || options.command === "check") && loaded.config.report !== false
+      ? resolveFromRoot(loaded.rootDir, loaded.config.report ?? ".bubbles-i18n/report.json")
+      : undefined;
 
   const markdownPath =
     options.command === "check"

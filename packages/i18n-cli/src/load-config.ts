@@ -140,9 +140,10 @@ export function validateConfig(value: unknown, configPath = "<config>"): I18nCon
 
   if (
     value.report !== undefined &&
+    value.report !== false &&
     (typeof value.report !== "string" || value.report.trim() === "")
   ) {
-    throw new ConfigValidationError(`${prefix}: report must be a non-empty string`);
+    throw new ConfigValidationError(`${prefix}: report must be false or a non-empty string`);
   }
 
   return value as unknown as I18nConfig;
