@@ -179,16 +179,16 @@ pnpm exec bubbles-i18n check --project web
 | `bubbles-i18n excel import` | Excel → JSON           | 所选项目的 JSON  |
 | `bubbles-i18n --help`       | 查看帮助               | 不写数据         |
 
-| 参数                   | 适用命令                        | 用途                                                   |
-| ---------------------- | ------------------------------- | ------------------------------------------------------ |
-| `--config <path>`      | 所有命令                        | 指定配置文件                                           |
-| `--project <name>`     | 所有业务命令                    | 选择项目，可以重复传入；默认全部                       |
-| `--locale <locale>`    | Excel 导出 / 导入               | 选择语言，可以重复传入；默认项目全部语言               |
-| `--dry-run`            | `sync`、Excel 导出 / 导入       | 生成预览报告，不写 JSON 语言包 / Excel 数据            |
-| `--prune`              | `sync`、Excel 导出 / 导入       | 删除目标端独有 key；Excel 转换必须显式指定 `--project` |
-| `--force` / `-f`       | Excel 导出 / 导入               | 解决值冲突；默认采用 Excel，不隐含删除                 |
-| `--prefer excel\|json` | Excel 导出 / 导入               | 指定冲突优先方；必须搭配 `--force`                     |
-| `--fail-on-stale`      | `check`                         | 把源码未使用的 JSON key 也视为检查失败                 |
+| 参数                   | 适用命令                  | 用途                                                   |
+| ---------------------- | ------------------------- | ------------------------------------------------------ |
+| `--config <path>`      | 所有命令                  | 指定配置文件                                           |
+| `--project <name>`     | 所有业务命令              | 选择项目，可以重复传入；默认全部                       |
+| `--locale <locale>`    | Excel 导出 / 导入         | 选择语言，可以重复传入；默认项目全部语言               |
+| `--dry-run`            | `sync`、Excel 导出 / 导入 | 生成预览报告，不写 JSON 语言包 / Excel 数据            |
+| `--prune`              | `sync`、Excel 导出 / 导入 | 删除目标端独有 key；Excel 转换必须显式指定 `--project` |
+| `--force` / `-f`       | Excel 导出 / 导入         | 解决值冲突；默认采用 Excel，不隐含删除                 |
+| `--prefer excel\|json` | Excel 导出 / 导入         | 指定冲突优先方；必须搭配 `--force`                     |
+| `--fail-on-stale`      | `check`                   | 把源码未使用的 JSON key 也视为检查失败                 |
 
 例如，导入两个项目中的两种语言：
 
@@ -208,24 +208,24 @@ pnpm exec bubbles-i18n excel import --project web --project admin --locale zh-CN
 
 表中命令省略 `pnpm exec bubbles-i18n` 前缀。
 
-| 流程           | 情况或意图           | 处理结果             | 命令                                                  |
-| ------------ | --------------- | ---------------- | --------------------------------------------------- |
-| 代码 → JSON    | 代码有，JSON 没有     | 补入 JSON          | `sync --project web`                                |
-| 代码 → JSON    | key 已存在         | 保留已有译文           | `sync --project web`                                |
-| 代码 → JSON    | JSON 有，代码没扫描到   | 保留，逐项写入报告        | `sync --project web`                                |
-| 代码 → JSON    | 删除上述多余 key      | 补入缺失项，删除多余项      | `sync --project web --prune`                        |
-| JSON → Excel | JSON 有，Excel 没有 | 补入 Excel         | `excel export --project web`                        |
-| JSON → Excel | Excel 有，JSON 没有 | 保留，逐项写入报告        | `excel export --project web`                        |
-| JSON → Excel | 删除 Excel 多余 key | 删除对应行            | `excel export --project web --prune`                |
-| JSON → Excel | 同 key、同语言，值不同   | 报告冲突并失败，数据文件不修改  | `excel export --project web`                        |
-| JSON → Excel | 冲突采用 Excel      | 保留 Excel 值       | `excel export --project web --force --prefer excel` |
-| JSON → Excel | 冲突采用 JSON       | 用 JSON 值更新 Excel | `excel export --project web --force --prefer json`  |
-| Excel → JSON | Excel 有，JSON 没有 | 补入 JSON          | `excel import --project web`                        |
-| Excel → JSON | JSON 有，Excel 没有 | 保留，逐项写入报告        | `excel import --project web`                        |
-| Excel → JSON | 删除 JSON 多余 key  | 删除对应 JSON 条目     | `excel import --project web --prune`                |
-| Excel → JSON | 同 key、同语言，值不同   | 报告冲突并失败，数据文件不修改  | `excel import --project web`                        |
-| Excel → JSON | 冲突采用 Excel      | 用 Excel 值更新 JSON | `excel import --project web --force --prefer excel` |
-| Excel → JSON | 冲突采用 JSON       | 保留 JSON 值        | `excel import --project web --force --prefer json`  |
+| 流程         | 情况或意图             | 处理结果                       | 命令                                                |
+| ------------ | ---------------------- | ------------------------------ | --------------------------------------------------- |
+| 代码 → JSON  | 代码有，JSON 没有      | 补入 JSON                      | `sync --project web`                                |
+| 代码 → JSON  | key 已存在             | 保留已有译文                   | `sync --project web`                                |
+| 代码 → JSON  | JSON 有，代码没扫描到  | 保留，逐项写入报告             | `sync --project web`                                |
+| 代码 → JSON  | 删除上述多余 key       | 补入缺失项，删除多余项         | `sync --project web --prune`                        |
+| JSON → Excel | JSON 有，Excel 没有    | 补入 Excel                     | `excel export --project web`                        |
+| JSON → Excel | Excel 有，JSON 没有    | 保留，逐项写入报告             | `excel export --project web`                        |
+| JSON → Excel | 删除 Excel 多余 key    | 删除对应行                     | `excel export --project web --prune`                |
+| JSON → Excel | 同 key、同语言，值不同 | 报告冲突并失败，数据文件不修改 | `excel export --project web`                        |
+| JSON → Excel | 冲突采用 Excel         | 保留 Excel 值                  | `excel export --project web --force --prefer excel` |
+| JSON → Excel | 冲突采用 JSON          | 用 JSON 值更新 Excel           | `excel export --project web --force --prefer json`  |
+| Excel → JSON | Excel 有，JSON 没有    | 补入 JSON                      | `excel import --project web`                        |
+| Excel → JSON | JSON 有，Excel 没有    | 保留，逐项写入报告             | `excel import --project web`                        |
+| Excel → JSON | 删除 JSON 多余 key     | 删除对应 JSON 条目             | `excel import --project web --prune`                |
+| Excel → JSON | 同 key、同语言，值不同 | 报告冲突并失败，数据文件不修改 | `excel import --project web`                        |
+| Excel → JSON | 冲突采用 Excel         | 用 Excel 值更新 JSON           | `excel import --project web --force --prefer excel` |
+| Excel → JSON | 冲突采用 JSON          | 保留 JSON 值                   | `excel import --project web --force --prefer json`  |
 
 值冲突与删除相互独立：`--prune` 不解决值冲突，`--force` 不删除 key。任一选中项目存在未解决的值冲突时，所有选中项目的数据文件都不写入，包括计划新增和删除项。
 
