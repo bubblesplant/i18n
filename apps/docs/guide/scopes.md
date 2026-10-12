@@ -11,33 +11,13 @@
        └─ 项目业务组件 → 使用项目语言与词条
 ```
 
-| 操作         | 全局应用                   | 局部项目                   |
-| ------------ | -------------------------- | -------------------------- |
-| 初始化       | 加载全局的默认中文包       | 加载项目的默认中文包       |
-| 全局切换英文 | 加载全局英文，更新全局组件 | 维持项目自己的语言         |
-| 项目切换英文 | 维持全局自己的语言         | 加载项目英文，更新项目组件 |
-
 ## 按作用域准备语言包
 
-全局沿用接入教程中的 `src/locales/zh-CN.json` 和 `src/locales/en-US.json`。项目词条放到单独的 `src/locales/project/` 目录。目录由应用决定，core 不会自行扫描或推导语言包路径。
+全局沿用[快速开始](./getting-started#准备语言-json)的语言包。项目词条放到 `src/locales/project/`，准备以下两个文件：
 
 ::: code-group
 
-```json [locales/zh-CN.json]
-{
-  "你好，{name}！": "你好，{name}！",
-  "切换语言": "切换语言"
-}
-```
-
-```json [locales/en-US.json]
-{
-  "你好，{name}！": "Hello, {name}!",
-  "切换语言": "Switch language"
-}
-```
-
-```json [locales/project/zh-CN.json]
+```json [src/locales/project/zh-CN.json]
 {
   "项目工作区": "项目工作区",
   "你好，{name}！": "项目欢迎你，{name}！",
@@ -45,7 +25,7 @@
 }
 ```
 
-```json [locales/project/en-US.json]
+```json [src/locales/project/en-US.json]
 {
   "项目工作区": "Project workspace",
   "你好，{name}！": "Welcome to the project, {name}!",
@@ -59,19 +39,12 @@
 
 ## 创建两个独立容器
 
-将接入教程的 `src/i18n.ts` 扩展为两个独立容器，供 React 和 Vue 共用。每个容器只静态导入自己的默认中文包：
+在快速开始的 `src/i18n.ts` 中新增以下内容，沿用已有的 `createI18n` 导入和 `store` 配置。将原容器导出为 `globalStore`，再创建独立的 `projectStore`：
 
 ```ts
-import { createI18n } from "@bubblesjs/i18n-core";
-import zhCN from "./locales/zh-CN.json";
 import projectZhCN from "./locales/project/zh-CN.json";
 
-export const globalStore = createI18n({
-  locale: "zh-CN",
-  message: zhCN,
-  loaderMessage: async (locale = "zh-CN") => (await import(`./locales/${locale}.json`)).default,
-});
-
+export const globalStore = store;
 export const projectStore = createI18n({
   locale: "zh-CN",
   message: projectZhCN,
@@ -80,19 +53,11 @@ export const projectStore = createI18n({
 });
 ```
 
-在应用入口直接导入两个容器，分别传给对应的 Provider：
-
-```ts
-import { globalStore, projectStore } from "./i18n";
-```
-
-`locale` 和 `message` 明确指定各自的默认语言与词条，`createI18n` 同步创建容器，不会调用 `loaderMessage`。首屏只导入全局中文和项目中文；各自的 `loadLocale("en-US")` 才会调用对应加载器导入英文包。加载器也可以使用接口或资源 URL，仍由应用提供。
-
-容器在所属作用域创建一次，并保持引用稳定。如果项目区域在进入某条路由后才出现，可以把项目容器与默认中文导入放到该路由模块中，在进入该区域时创建，再挂载局部 Provider。多个需要独立语言的项目区域，应分别调用 `createI18n` 创建自己的容器。
+每个容器使用自己的词条和加载器，在所属作用域创建一次并保持引用稳定。路由按需出现的项目区域，可以在路由模块中导入默认语言并创建容器；多个需要独立语言的区域分别创建自己的容器。
 
 ## 接入 React 与 Vue
 
-完整入口、Provider 和业务组件示例：
+框架中的嵌套 Provider 写法：
 
 - [React：局部使用与独立项目语言](./react#局部使用-独立项目语言)
 - [Vue：局部使用与独立项目语言](./vue#局部使用-独立项目语言)
@@ -101,7 +66,7 @@ import { globalStore, projectStore } from "./i18n";
 
 需要读取局部语言的业务组件，应放在项目 Provider 的后代中。在渲染局部 Provider 的同一个组件里调用 `useI18n()`，读到的是该组件外层的容器。
 
-若启用[语言偏好持久化](./core#持久化语言偏好)，为不同作用域设置不同的 `storageKey`，例如 `app:locale` 和 `project:demo:locale`；不同项目再按项目 ID 区分，避免刷新后恢复到其他作用域保存的语言。服务端渲染时，各请求分别创建这些容器。
+若启用[语言偏好持久化](./core#持久化语言偏好)，为不同作用域设置不同的 `storageKey`，例如 `app:locale` 和 `project:demo:locale`；不同项目按 ID 区分。[服务端渲染](./core#服务端渲染)时，各请求分别创建这些容器。
 
 ## 运行 Playground
 

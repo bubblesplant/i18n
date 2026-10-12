@@ -30,15 +30,15 @@ const features = [
   },
   {
     icon: "palette",
-    title: "语言切换：加载后更新组件",
-    text: "用 loaderMessage 按需加载 JSON，通过 loadLocale 切换语言。加载完成后，订阅状态的组件自动刷新。",
-    link: "/guide/core#异步初始化与切换",
+    title: "核心容器：翻译与语言状态",
+    text: "框架无关的运行时，提供插值、异步切换、状态订阅与可选的语言偏好持久化。",
+    link: "/guide/core",
   },
   {
     icon: "layers",
-    title: "JSON ⇄ Excel：设计阶段",
-    text: "计划把 JSON 导出为表格供翻译编辑，再导回语言包。当前 CLI 尚未实现 Excel 导入导出。",
-    link: "/guide/cli",
+    title: "全局与局部：独立切换语言",
+    text: "用独立容器和嵌套 Provider，为项目工作区或嵌入模块维护各自的语言与词条。",
+    link: "/guide/scopes",
   },
 ];
 
@@ -144,8 +144,10 @@ const iconPaths: Record<string, string> = {
 
     <section class="bubbles-workflow" aria-labelledby="workflow-title">
       <h2 id="workflow-title">词条维护主线：扫描项目 → JSON ⇄ Excel</h2>
-      <p>当前已支持扫描项目、同步与检查 JSON。JSON 与 Excel 往返编辑处于设计阶段，尚未提供命令。</p>
-      <a :href="withBase('/guide/cli')">查看 CLI 命令与规划 <span aria-hidden="true">→</span></a>
+      <p>扫描补齐语言包，导出 Excel 交给译者编辑，再将译文导入 JSON。</p>
+      <a :href="withBase('/guide/cli#excel-workflow')"
+        >查看词条维护流程 <span aria-hidden="true">→</span></a
+      >
     </section>
 
     <section class="bubbles-features" aria-label="实现思路、框架接入与词条维护">
