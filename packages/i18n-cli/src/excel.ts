@@ -6,6 +6,7 @@ import { isDeepStrictEqual } from "node:util";
 
 import type { Cell, CellValue, Workbook, Worksheet } from "exceljs";
 
+import { DEFAULT_EXCEL_SHEET } from "./config.ts";
 import { readCatalog, serializeCatalog } from "./sync.ts";
 import type { CatalogState } from "./sync.ts";
 
@@ -15,7 +16,8 @@ export interface ExcelProjectInput {
   name: string;
   catalogs: Record<string, string>;
   excelPath: string;
-  sheet: string;
+  /** 工作表名称，省略时使用 sheet1。 */
+  sheet?: string;
   locales: string[];
 }
 
@@ -154,7 +156,7 @@ export async function planExcel(options: ExcelOptions): Promise<ExcelPlan> {
     const project: ExcelProjectPlan = {
       project: input.name,
       excelPath: input.excelPath,
-      sheet: input.sheet || "translations",
+      sheet: input.sheet || DEFAULT_EXCEL_SHEET,
       locales: [...input.locales],
       additions: [],
       extras: [],
@@ -285,7 +287,7 @@ function validateOptions(options: ExcelOptions): void {
     if (extname(project.excelPath).toLowerCase() !== ".xlsx") {
       throw new ExcelValidationError(`Excel file must use .xlsx: "${project.excelPath}"`);
     }
-    const sheet = project.sheet || "translations";
+    const sheet = project.sheet || DEFAULT_EXCEL_SHEET;
     if (sheet.length > 31 || /[\\/*?:[\]]/u.test(sheet) || /^'|'$/u.test(sheet)) {
       throw new ExcelValidationError(`Invalid Excel sheet name: "${sheet}"`);
     }

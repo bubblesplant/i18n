@@ -159,7 +159,7 @@ void [VueProvider, useReactStore, useVueStore, config, options];
   );
   writeFileSync(
     join(consumer, "i18n.config.ts"),
-    "import { defineConfig } from '@bubblesjs/i18n-cli';\nexport default defineConfig({ projects: { app: { include: ['src/**/*.{ts,tsx}'], catalogs: { en: 'locales/en.json' }, excel: { file: 'translations/app.xlsx' } } } });\n",
+    "import { defineConfig } from '@bubblesjs/i18n-cli';\nexport default defineConfig({ projects: { app: { include: ['src/**/*.{ts,tsx}'], catalogs: { en: 'locales/en.json' } } } });\n",
   );
   const cli = join(consumer, "node_modules/@bubblesjs/i18n-cli/dist/cli.js");
   run(process.execPath, [cli, "check"], consumer, 1);
@@ -173,7 +173,7 @@ void [VueProvider, useReactStore, useVueStore, config, options];
   run(process.execPath, [cli, "check"], consumer);
 
   // Exercise the installed dependency and the real bin, including CJS's lazy Excel import.
-  const excelPath = join(consumer, "translations/app.xlsx");
+  const excelPath = join(consumer, ".bubbles-i18n/app.xlsx");
   const catalogPath = join(consumer, "locales/en.json");
   run(process.execPath, [cli, "excel", "export", "--dry-run"], consumer);
   assert.ok(!existsSync(excelPath));
@@ -183,7 +183,7 @@ void [VueProvider, useReactStore, useVueStore, config, options];
   const { default: ExcelJS } = await import(pathToFileURL(cliRequire.resolve("exceljs")).href);
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.readFile(excelPath);
-  const sheet = workbook.getWorksheet("translations");
+  const sheet = workbook.getWorksheet("sheet1");
   assert.deepEqual(sheet.getRow(1).values.slice(1), ["key", "en"]);
   const helloRow = sheet
     .getRows(2, sheet.rowCount - 1)
@@ -212,7 +212,7 @@ void [VueProvider, useReactStore, useVueStore, config, options];
   run(process.execPath, ["cli-excel.cjs"], consumer);
   const exported = new ExcelJS.Workbook();
   await exported.xlsx.readFile(excelPath);
-  const exportedSheet = exported.getWorksheet("translations");
+  const exportedSheet = exported.getWorksheet("sheet1");
   const exportedHello = exportedSheet
     .getRows(2, exportedSheet.rowCount - 1)
     .find((row) => row.getCell(1).value === "hello");

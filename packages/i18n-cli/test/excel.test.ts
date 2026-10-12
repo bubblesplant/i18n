@@ -116,6 +116,26 @@ describe("Excel synchronization", () => {
     expect(plan.projects[0]!.backupPaths).toEqual([]);
   });
 
+  it("defaults an omitted sheet to sheet1 for both export and import", async () => {
+    const input = await makeProject(temporaryDirectory.path, "web", {
+      en: { greeting: "Hello" },
+    });
+    delete input.sheet;
+
+    await applyExcel(await planExcel(options([input])));
+
+    const workbook = await readWorkbook(input.excelPath);
+    expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual(["sheet1"]);
+    expect(workbook.getWorksheet("sheet1")!.getCell("B2").value).toBe("Hello");
+    const excelBefore = await readFile(input.excelPath);
+    await writeFile(input.catalogs.en!, "{}\n", "utf8");
+
+    await applyExcel(await planExcel(options([input], { direction: "import" })));
+
+    expect(await readMessages(input.catalogs.en!)).toEqual({ greeting: "Hello" });
+    expect(await readFile(input.excelPath)).toEqual(excelBefore);
+  });
+
   it("merges by exact headers while preserving row order, notes, styles and other sheets", async () => {
     const input = await makeProject(temporaryDirectory.path, "web", {
       en: { second: "Second", first: "First", new: "New" },

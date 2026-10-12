@@ -127,6 +127,41 @@ describe("Markdown CLI reports", () => {
     },
   );
 
+  it.each([
+    { command: "sync", args: ["sync"], file: "sync.md" },
+    { command: "excel export", args: ["excel", "export"], file: "excel-export.md" },
+    { command: "excel import", args: ["excel", "import"], file: "excel-import.md" },
+  ])("protects unselected catalogs at the default $command report path", async ({ args, file }) => {
+    const root = temporaryDirectory.path;
+    const collisionPath = join(root, ".bubbles-i18n", "reports", file);
+    await mkdir(join(root, "src"), { recursive: true });
+    await mkdir(join(root, ".bubbles-i18n", "reports"), { recursive: true });
+    await writeFile(join(root, "src", "app.ts"), 'tr("new")', "utf8");
+    await writeFile(join(root, "web.json"), '{"keep":"Web"}', "utf8");
+    const catalogSource = '{"keep":"Admin"}';
+    await writeFile(collisionPath, catalogSource, "utf8");
+    await writeFile(
+      join(root, "i18n.config.mjs"),
+      `export default ${JSON.stringify({
+        projects: {
+          web: { include: ["src/**/*.ts"], catalogs: { en: "web.json" } },
+          admin: { catalogs: { en: `.bubbles-i18n/reports/${file}` } },
+        },
+      })}`,
+      "utf8",
+    );
+
+    await expect(
+      runCli([...args, "--project", "web"], { cwd: root, stdout: () => undefined }),
+    ).rejects.toThrow("Markdown report path must not overwrite catalogs");
+
+    expect(await readFile(collisionPath, "utf8")).toBe(catalogSource);
+    expect(await readFile(join(root, "web.json"), "utf8")).toBe('{"keep":"Web"}');
+    await expect(access(join(root, ".bubbles-i18n", "web.xlsx"))).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
+
   it("escapes special conflict keys and values while keeping retry config, project and locale", async () => {
     const root = temporaryDirectory.path;
     const key = "danger|`<tag>&\nline";
@@ -166,7 +201,7 @@ describe("Markdown CLI reports", () => {
     expect(report).toContain('"danger&#124;&#96;&lt;tag&gt;&amp;\\\\nline"');
     expect(report).toContain('"JSON &#124;&#96;&lt;&gt;&amp;"');
     expect(report).toContain('"Excel &#124;&#96;&lt;&gt;&amp;"');
-    expect(report).toContain("translations / B2");
+    expect(report).toContain("sheet1 / B2");
     expect(report).not.toContain("<tag>");
     const retry =
       "pnpm exec bubbles-i18n excel import --config 'custom config.mjs' --project 'web app' --locale en";
@@ -399,7 +434,7 @@ async function writeWorkbook(
   file = "web.xlsx",
 ): Promise<void> {
   const workbook = new ExcelJS.Workbook();
-  const worksheet = workbook.addWorksheet("translations");
+  const worksheet = workbook.addWorksheet("sheet1");
   for (const row of rows) worksheet.addRow([...row]);
   await workbook.xlsx.writeFile(join(root, file));
 }

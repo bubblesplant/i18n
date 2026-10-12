@@ -156,7 +156,7 @@ core 的中心是一个自建的可订阅状态容器，暴露 `getState()`、`s
 
 ## JSON ⇄ Excel 如何协作
 
-每个项目通过 `excel.file` 配置一个 `.xlsx` 文件，默认工作表为 `translations`，可用 `excel.sheet` 指定。行是 key，列是语言：
+每个项目默认使用配置目录下的 `.bubbles-i18n/<项目名>.xlsx`，默认工作表为精确小写 `sheet1`。`excel` 可以省略或设为 `{}`；`excel.file` 与 `excel.sheet` 可分别覆盖，未配置的选项仍使用默认值。行是 key，列是语言：
 
 | key       | 中文           | English        | 备注       |
 | --------- | -------------- | -------------- | ---------- |

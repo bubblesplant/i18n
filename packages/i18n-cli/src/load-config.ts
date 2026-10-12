@@ -211,18 +211,20 @@ function validateStringArray(
   }
 }
 
-/** 校验 Excel 文件和可选工作表名称，默认工作表由执行转换的命令确定。 */
+/** 校验可选的 Excel 文件和工作表名称，省略字段的默认值由执行命令解析。 */
 function validateExcelConfig(value: unknown, path: string, prefix: string): void {
   if (!isRecord(value)) {
     throw new ConfigValidationError(`${prefix}: ${path} must be an object`);
   }
 
-  if (typeof value.file !== "string" || value.file.trim() === "") {
-    throw new ConfigValidationError(`${prefix}: ${path}.file must be a non-empty string`);
-  }
+  if (value.file !== undefined) {
+    if (typeof value.file !== "string" || value.file.trim() === "") {
+      throw new ConfigValidationError(`${prefix}: ${path}.file must be a non-empty string`);
+    }
 
-  if (extname(value.file).toLowerCase() !== ".xlsx") {
-    throw new ConfigValidationError(`${prefix}: ${path}.file must point to an .xlsx file`);
+    if (extname(value.file).toLowerCase() !== ".xlsx") {
+      throw new ConfigValidationError(`${prefix}: ${path}.file must point to an .xlsx file`);
+    }
   }
 
   if (value.sheet !== undefined) {

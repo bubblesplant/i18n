@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
-import type { I18nProjectConfig } from "./config.ts";
+import { DEFAULT_EXCEL_SHEET, type I18nProjectConfig } from "./config.ts";
 import { applyExcel, planExcel, type ExcelProjectInput } from "./excel.ts";
 import { scanFiles, type ScanFilesResult } from "./files.ts";
 import { loadConfig } from "./load-config.ts";
@@ -88,6 +88,7 @@ const helpText = `用法：
   扫描保留已有翻译；新增项默认使用 key 作为翻译值。
   Excel 普通命令有值冲突时退出 1，所有选中项目数据均不写入。
   多余 key 默认保留并逐项报告；--prune 不解决值冲突。
+  Excel 默认文件：.bubbles-i18n/<项目名>.xlsx，默认工作表：sheet1。
   报告：.bubbles-i18n/reports/{sync,excel-export,excel-import}.md。
   sync/check 默认写 .bubbles-i18n/report.json；配置 report: false 可关闭，字符串可自定义路径。`;
 
@@ -131,9 +132,10 @@ export async function runCli(
           "reports",
           `${options.command.replace(" ", "-")}.md`,
         );
-  const excelPaths = Object.entries(loaded.config.projects).flatMap(([name, project]) =>
-    project.excel ? [{ name, path: resolveFromRoot(loaded.rootDir, project.excel.file) }] : [],
-  );
+  const excelPaths = Object.entries(loaded.config.projects).map(([name, project]) => ({
+    name,
+    path: resolveExcelConfig(loaded.rootDir, name, project).excelPath,
+  }));
   validateOutputPaths(allProjectCatalogs, reportPath, loaded.configPath, excelPaths, markdownPath);
   if (markdownPath)
     await assertSafeMarkdownTarget(
@@ -320,10 +322,6 @@ async function runExcelCommand(
   writeOutput: (message: string) => void,
 ): Promise<number> {
   const projects: ExcelProjectInput[] = entries.map(([name, project]) => {
-    if (!project.excel)
-      throw new CliUsageError(
-        `Project "${name}" requires excel.file; select Excel projects with --project.`,
-      );
     const available = Object.keys(project.catalogs);
     for (const locale of options.locales) {
       if (!available.includes(locale))
@@ -334,8 +332,7 @@ async function runExcelCommand(
     return {
       name,
       catalogs: resolveCatalogs(rootDir, project.catalogs),
-      excelPath: resolveFromRoot(rootDir, project.excel.file),
-      sheet: project.excel.sheet ?? "translations",
+      ...resolveExcelConfig(rootDir, name, project),
       locales: options.locales.length ? options.locales : available,
     };
   });
@@ -611,6 +608,33 @@ function resolveCatalogs(
 /** 保留绝对路径，或基于配置根目录解析相对路径。 */
 function resolveFromRoot(rootDir: string, path: string): string {
   return isAbsolute(path) ? resolve(path) : resolve(rootDir, path);
+}
+
+/** 统一解析 Excel 默认值，编码项目名以保证默认文件位于配置目录且兼容 Windows。 */
+function resolveExcelConfig(
+  rootDir: string,
+  name: string,
+  project: I18nProjectConfig,
+): { excelPath: string; sheet: string } {
+  let file = project.excel?.file;
+  if (file === undefined) {
+    let filename: string;
+    try {
+      filename = encodeURIComponent(name).replaceAll("*", "%2A");
+    } catch {
+      throw new CliUsageError(
+        `Project "${name}" cannot be used as an Excel filename; configure excel.file explicitly.`,
+      );
+    }
+    if (/^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/iu.test(filename)) {
+      filename = `%${filename.charCodeAt(0).toString(16).toUpperCase()}${filename.slice(1)}`;
+    }
+    file = `.bubbles-i18n/${filename}.xlsx`;
+  }
+  return {
+    excelPath: resolveFromRoot(rootDir, file),
+    sheet: project.excel?.sheet ?? DEFAULT_EXCEL_SHEET,
+  };
 }
 
 /** 检查语言包路径是否重复，并防止报告路径覆盖语言包或配置文件。 */

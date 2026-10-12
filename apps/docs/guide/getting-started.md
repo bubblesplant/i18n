@@ -119,7 +119,7 @@ pnpm exec bubbles-i18n check
 
 扫描包含在 `sync` / `check` 内部。新增 key 的值先等于 key，需要手动填入译文；`check` 默认检查缺失 key，不判断译文是否完成。需要同时检查未使用 key 时加上 `--fail-on-stale`。Vue 模板和脚本中的 `tr("key")` 都可扫描。
 
-本仓库 CLI 已支持 JSON ⇄ Excel：配置 `projects.<name>.excel.file` 后，使用 `excel export` 导出翻译表，再使用 `excel import` 把译者填写的译文导入回 JSON。流程与冲突规则见[CLI 使用](./cli#excel-workflow)，npm 包的功能发布状态见 [GitHub Releases](https://github.com/bubblesplant/i18n/releases)。
+本仓库 CLI 已支持 JSON ⇄ Excel：上述配置可直接使用 `excel export` 导出翻译表，再使用 `excel import` 把译者填写的译文导入回 JSON。Excel 默认文件为配置目录下的 `.bubbles-i18n/<项目名>.xlsx`，默认工作表为精确小写 `sheet1`；本例即 `.bubbles-i18n/web.xlsx`。`excel` 可省略或设为 `{}`，`excel.file` 与 `excel.sheet` 可分别覆盖。流程与冲突规则见[CLI 使用](./cli#excel-workflow)，npm 包的功能发布状态见 [GitHub Releases](https://github.com/bubblesplant/i18n/releases)。
 
 ## 在本仓库开发文档与示例
 

@@ -46,10 +46,6 @@ export default defineConfig({
         "zh-CN": "src/locales/zh-CN.json",
         "en-US": "src/locales/en-US.json",
       },
-      excel: {
-        file: "translations/web.xlsx",
-        sheet: "translations",
-      },
     },
   },
   // 默认写入 .bubbles-i18n/report.json；可选择以下一种覆盖方式：
@@ -58,9 +54,9 @@ export default defineConfig({
 });
 ```
 
-Excel 配置放在 `projects.<name>.excel`，直接复用同项目的 `catalogs`。`excel.file` 是 `.xlsx` 路径，`excel.sheet` 默认 `translations`。扫描参数 `callNames`、`include`、`exclude` 不参与 Excel 转换。
+Excel 直接复用同项目的 `catalogs`。可选配置放在 `projects.<name>.excel`：`file` 默认 `.bubbles-i18n/<项目名>.xlsx`，相对配置文件所在目录；`sheet` 默认精确小写 `sheet1`。省略整个 `excel` 或配置 `{}` 时均采用这两个默认值；只配置 `sheet` 时使用默认文件，只配置 `file` 时使用默认工作表。需要覆盖时可配置 `excel: { file: "translations/web.xlsx", sheet: "review" }`，两项可以分别覆盖。扫描参数 `callNames`、`include`、`exclude` 不参与 Excel 转换。
 
-扫描所选项目必须配置非空 `include`；只维护 Excel 的项目可以省略 `include`。Excel 所选项目必须配置 `excel`。不传 `--project` 时默认选择全部项目，不会自动跳过缺少用途配置的项目；不符合当前命令要求时返回 `2`，并提示用 `--project` 选择适用项目。
+扫描所选项目必须配置非空 `include`；只维护 Excel 的项目可以省略 `include`，仅配置 `catalogs`。不传 `--project` 时默认选择全部项目；扫描选择缺少 `include` 的项目时返回 `2`，可用 `--project` 选择要扫描的项目。扫描与 Excel 命令加载配置时都会解析各项目的独立 Excel 路径，例如 `web` 与 `admin` 默认分别使用 `.bubbles-i18n/web.xlsx` 与 `.bubbles-i18n/admin.xlsx`；特殊字符及 Windows 保留名会在文件名中安全编码。
 
 所有相对路径以配置文件所在目录为基准，包括 JSON、Excel、默认 Markdown 报告和扫描 JSON 报告。省略顶层 `report` 时，扫描 JSON 报告默认写入 `.bubbles-i18n/report.json`；设为 `false` 关闭，设为字符串自定义路径。每个项目使用独立的 Excel 文件；不同项目 / locale 不共用同一个 JSON 输出文件。
 

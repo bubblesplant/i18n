@@ -44,10 +44,6 @@ export default defineConfig({
         "zh-CN": "src/locales/zh-CN.json",
         "en-US": "src/locales/en-US.json",
       },
-      excel: {
-        file: "translations/web.xlsx",
-        sheet: "translations",
-      },
     },
   },
   // 默认写入 .bubbles-i18n/report.json；可选择以下一种覆盖方式：
@@ -62,13 +58,15 @@ export default defineConfig({
 | `projects.<name>.include`     | 扫描时必需的非空 glob 列表；仅维护 Excel 时可省略                                            |
 | `projects.<name>.exclude`     | 扫描时额外排除的 glob 列表                                                                   |
 | `projects.<name>.catalogs`    | locale 到扁平字符串 JSON 的映射，扫描与 Excel 共用                                           |
-| `projects.<name>.excel.file`  | Excel 转换时必需，一个项目对应一个 `.xlsx`                                                   |
-| `projects.<name>.excel.sheet` | CLI 管理的翻译 sheet 名，默认 `translations`                                                 |
+| `projects.<name>.excel.file`  | 可选 `.xlsx` 路径，默认 `.bubbles-i18n/<项目名>.xlsx`，相对配置目录                          |
+| `projects.<name>.excel.sheet` | 可选托管翻译 sheet 名，默认精确小写 `sheet1`                                                 |
 | `report`                      | 省略时写 `.bubbles-i18n/report.json`；`false` 关闭，字符串自定义路径；Excel 命令不使用此配置 |
 
 所有路径相对配置文件所在目录。默认向上查找配置，同目录依次尝试 `i18n.config.ts`、`.mts`、`.js`、`.mjs`、`.cts`、`.cjs`。ESM 使用 `export default`，CommonJS 使用 `module.exports`；TypeScript 配置由 Node.js 原生加载，使用可擦除类型语法。
 
-不传 `--project` 时选择全部项目；不会自动跳过用途配置缺失的项目。扫描所选项目必须有 `include`，Excel 所选项目必须有 `excel`，否则返回 `2`，可通过 `--project` 选择适用项目。只维护 Excel 的项目可仅配置 `catalogs` 和 `excel`。
+不传 `--project` 时选择全部项目。`sync` / `check` 所选项目必须有非空 `include`；只维护 Excel 的项目可仅配置 `catalogs`。扫描命令选择缺少 `include` 的项目时返回 `2`，可通过 `--project` 选择要扫描的项目。
+
+`excel` 整体省略或设为 `{}` 均使用默认文件与工作表。只配置 `sheet` 时文件仍取默认值，只配置 `file` 时工作表仍为 `sheet1`；两项可分别自定义。扫描与 Excel 命令加载配置时都会解析各项目的独立 Excel 路径，例如 `web` 和 `admin` 分别使用 `.bubbles-i18n/web.xlsx` 与 `.bubbles-i18n/admin.xlsx`；特殊字符及 Windows 保留名会在文件名中安全编码。需要覆盖默认值时，可在项目中配置 `excel: { file: "translations/web.xlsx", sheet: "review" }`。
 
 ## 完整工作流
 
@@ -185,6 +183,8 @@ Excel 转换实际修改已有目标文件时，备份到目标同目录的 `.bu
 Excel 仅支持 `.xlsx`，一项目一文件、一个托管翻译 sheet，保留其他 sheet 和备注列。第一列表头是 `key`，语言表头是 `catalogs` 的 locale ID，locale 不能使用保留名 `key`。新文件包含全部语言表头；已有文件只要求本次所选语言的表头，未选语言缺列不阻断操作。key 和译文精确匹配，不自动 trim。
 
 重复 key、缺失所选语言列、空 key 带有翻译或不支持的数据类型会报错。翻译 sheet 的 key 与所选语言单元格不能合并，其他 sheet 的合并单元格可以保留。key 与所选语言的非空单元格必须是字符串，数字、布尔值、日期、公式、rich text 等会报错。导出文件不存在时创建；已有文件缺少指定翻译 sheet 或导入文件不存在时返回错误。
+
+填写或粘贴前，先将 `key` 列和语言列设置为 Excel 的「文本」格式，避免纯数字、日期样式、带前导零或以 `=` 开头的内容被自动转换。仅修改已有单元格的显示格式，不一定会改变实际类型；应设置为文本后重新输入，或在输入内容前加英文单引号 `'`。导出也会读取并校验已有 Excel：若遇到 `Invalid key cell at translations!A4 ... only text and blank cells are supported.`，检查报错文件的 `translations` 工作表 A4，将 key 改为实际文本；公式应改为文本内容。无用记录应删除或清空整行，避免留下空 key 和译文。保存后重新执行，`--force` 不绕过类型校验。详细步骤见 [Excel 单元格格式与报错排查](https://github.com/bubblesplant/i18n/blob/main/apps/docs/guide/cli.md#excel-cell-format)。
 
 导出到 Excel 的单元格文本最多 32,767 个 UTF-16 代码单元，支持 Tab、LF / CR / CRLF、emoji、占位符和字面 `_xHHHH_` 文本。XML 不支持的控制字符、未配对的 UTF-16 代理项、U+FFFE 和 U+FFFF 会报错。写入时通过 ExcelJS 重写整本工作簿，对普通字符串单元格编码并重读验证，覆盖未选语言、备注列和其他 sheet；不符合限制的待保留字符串也会阻止导出。富文本、超链接、公式等复杂附加单元格若在重写后不能保持原值，会拒绝整个导出，不写数据。单元格值校验不保证嵌入对象等 Excel 高级特性完整保留，建议使用专门的翻译工作簿。
 

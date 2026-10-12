@@ -79,26 +79,29 @@ describe("loadConfig", () => {
     expect(loaded.config).toEqual(validConfig);
   });
 
-  it("loads an Excel-only project without injecting a default sheet or scan rules", async () => {
-    const config = {
-      projects: {
-        web: {
-          catalogs: { en_US: "locales/en_US.json" },
-          excel: { file: "translations/web.xlsx" },
+  it.each([undefined, {}, { file: "translations/web.xlsx" }])(
+    "loads an Excel-only project without injecting defaults or scan rules %#",
+    async (excel) => {
+      const config = {
+        projects: {
+          web: {
+            catalogs: { en_US: "locales/en_US.json" },
+            excel,
+          },
         },
-      },
-    };
-    await writeFile(
-      join(temporaryDirectory.path, "i18n.config.mjs"),
-      `export default ${JSON.stringify(config)}`,
-      "utf8",
-    );
+      };
+      await writeFile(
+        join(temporaryDirectory.path, "i18n.config.mjs"),
+        `export default ${JSON.stringify(config)}`,
+        "utf8",
+      );
 
-    const loaded = await loadConfig({ cwd: temporaryDirectory.path });
+      const loaded = await loadConfig({ cwd: temporaryDirectory.path });
 
-    expect(loaded.config).toEqual(config);
-    expect(loaded.rootDir).toBe(temporaryDirectory.path);
-  });
+      expect(loaded.config).toEqual(config);
+      expect(loaded.rootDir).toBe(temporaryDirectory.path);
+    },
+  );
 
   it("reports the searched directory and supported names when discovery fails", async () => {
     await expect(loadConfig({ cwd: temporaryDirectory.path })).rejects.toThrowError(
@@ -168,6 +171,9 @@ describe("validateConfig", () => {
 
   it.each([
     undefined,
+    {},
+    { file: undefined },
+    { sheet: "自定义" },
     { file: "translations/web.xlsx" },
     { file: "translations/web.XLSX", sheet: "translations" },
     { file: "translations/web.xlsx", sheet: "翻译表 with spaces" },
@@ -186,8 +192,9 @@ describe("validateConfig", () => {
     [null, 'projects["web"].excel must be an object'],
     [[], 'projects["web"].excel must be an object'],
     ["translations.xlsx", 'projects["web"].excel must be an object'],
-    [{}, 'projects["web"].excel.file must be a non-empty string'],
+    [{ file: "" }, 'projects["web"].excel.file must be a non-empty string'],
     [{ file: " " }, 'projects["web"].excel.file must be a non-empty string'],
+    [{ file: null }, 'projects["web"].excel.file must be a non-empty string'],
     [{ file: 1 }, 'projects["web"].excel.file must be a non-empty string'],
     [{ file: "translations.xls" }, 'projects["web"].excel.file must point to an .xlsx file'],
     [{ file: "translations.json" }, 'projects["web"].excel.file must point to an .xlsx file'],

@@ -1,5 +1,9 @@
+export const DEFAULT_EXCEL_SHEET = "sheet1";
+
 export interface I18nExcelConfig {
-  file: string;
+  /** Excel 文件路径，默认 .bubbles-i18n/<项目名>.xlsx，相对配置文件目录解析。 */
+  file?: string;
+  /** 工作表名称，默认 sheet1。 */
   sheet?: string;
 }
 
@@ -7,6 +11,7 @@ export interface I18nProjectConfig {
   include?: readonly string[];
   exclude?: readonly string[];
   catalogs: Readonly<Record<string, string>>;
+  /** 可省略，默认使用 .bubbles-i18n/<项目名>.xlsx 和 sheet1。 */
   excel?: I18nExcelConfig;
 }
 

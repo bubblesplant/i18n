@@ -5,7 +5,7 @@ import ExcelJS from "exceljs";
 import { describe, expect, it } from "vite-plus/test";
 
 import { main, runCli } from "../src/command.ts";
-import type { I18nProjectConfig } from "../src/config.ts";
+import type { I18nExcelConfig, I18nProjectConfig } from "../src/config.ts";
 import { useTemporaryDirectory } from "./temporary-directory.ts";
 
 describe("Excel CLI commands", () => {
@@ -37,6 +37,141 @@ describe("Excel CLI commands", () => {
       code: "ENOENT",
     });
   });
+
+  it.each([
+    { label: "omitted excel", excel: undefined, sheet: "sheet1" },
+    { label: "empty excel", excel: {}, sheet: "sheet1" },
+    { label: "sheet only", excel: { sheet: "译文" }, sheet: "译文" },
+  ] satisfies { label: string; excel: I18nExcelConfig | undefined; sheet: string }[])(
+    "round-trips $label using the default workbook beside an explicitly selected config",
+    async ({ excel, sheet }) => {
+      const root = temporaryDirectory.path;
+      const configRoot = join(root, "config");
+      const projectRoot = join(root, "project");
+      await mkdir(configRoot, { recursive: true });
+      await mkdir(join(projectRoot, "nested"), { recursive: true });
+      await writeConfig(configRoot, {
+        web: { catalogs: { en: "../project/en.json", fr: "../project/fr.json" }, excel },
+      });
+      const messages = { en: { greeting: "Hello" }, fr: { greeting: "Bonjour" } };
+      await writeJson(projectRoot, "en.json", messages.en);
+      await writeJson(projectRoot, "fr.json", messages.fr);
+
+      expect(
+        await runCli(["excel", "export", "--config", "../config/i18n.config.mjs"], {
+          cwd: projectRoot,
+          stdout: () => undefined,
+        }),
+      ).toBe(0);
+
+      const excelPath = join(configRoot, ".bubbles-i18n", "web.xlsx");
+      expect(await readTable(excelPath, sheet)).toEqual({
+        headers: ["key", "en", "fr"],
+        values: { greeting: { en: "Hello", fr: "Bonjour" } },
+      });
+      const workbook = await readFile(excelPath);
+      await writeJson(projectRoot, "en.json", {});
+      await writeJson(projectRoot, "fr.json", {});
+
+      expect(
+        await runCli(["excel", "import", "--config", "../../config/i18n.config.mjs"], {
+          cwd: join(projectRoot, "nested"),
+          stdout: () => undefined,
+        }),
+      ).toBe(0);
+
+      expect(await readJson(projectRoot, "en.json")).toEqual(messages.en);
+      expect(await readJson(projectRoot, "fr.json")).toEqual(messages.fr);
+      expect(await readFile(excelPath)).toEqual(workbook);
+      await expect(access(join(projectRoot, ".bubbles-i18n"))).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+      await expect(access(join(configRoot, ".bubbles-i18n", "report.json"))).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+    },
+  );
+
+  it("exports each project's default workbook to a distinct file", async () => {
+    const root = temporaryDirectory.path;
+    await writeConfig(root, {
+      web: { catalogs: { en: "web.json" } },
+      admin: { catalogs: { en: "admin.json" }, excel: {} },
+    });
+    await writeJson(root, "web.json", { webKey: "Web" });
+    await writeJson(root, "admin.json", { adminKey: "Admin" });
+
+    expect(await runCli(["excel", "export"], { cwd: root, stdout: () => undefined })).toBe(0);
+
+    expect((await readTable(join(root, ".bubbles-i18n", "web.xlsx"))).values).toEqual({
+      webKey: { en: "Web" },
+    });
+    expect((await readTable(join(root, ".bubbles-i18n", "admin.xlsx"))).values).toEqual({
+      adminKey: { en: "Admin" },
+    });
+  });
+
+  it("keeps default workbooks inside the output directory for special project names", async () => {
+    const root = temporaryDirectory.path;
+    const projects = [
+      { name: "../outside", file: "..%2Foutside.xlsx" },
+      { name: "..\\outside", file: "..%5Coutside.xlsx" },
+      { name: "CON", file: "%43ON.xlsx" },
+      { name: "a*b", file: "a%2Ab.xlsx" },
+      { name: "a%2Ab", file: "a%252Ab.xlsx" },
+    ];
+    await writeConfig(
+      root,
+      Object.fromEntries(
+        projects.map(({ name }, index) => [name, { catalogs: { en: `${index}.json` } }]),
+      ),
+    );
+    for (const [index, { name }] of projects.entries()) {
+      await writeJson(root, `${index}.json`, { key: name });
+    }
+
+    expect(await runCli(["excel", "export"], { cwd: root, stdout: () => undefined })).toBe(0);
+
+    const directory = join(root, ".bubbles-i18n");
+    expect((await readdir(directory)).filter((file) => file.endsWith(".xlsx")).sort()).toEqual(
+      projects.map(({ file }) => file).sort(),
+    );
+    for (const { name, file } of projects) {
+      expect((await readTable(join(directory, file))).values).toEqual({ key: { en: name } });
+    }
+    await expect(access(join(root, "outside.xlsx"))).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it.each([
+    { direction: "export", owner: "catalog", diagnostic: "admin/en and web/excel" },
+    { direction: "import", owner: "workbook", diagnostic: "web/excel and admin/excel" },
+  ] as const)(
+    "$direction refuses default workbook paths owned by an unselected project's $owner",
+    async ({ direction, owner, diagnostic }) => {
+      const root = temporaryDirectory.path;
+      const collisionPath = ".bubbles-i18n/web.xlsx";
+      await writeConfig(root, {
+        web: { catalogs: { en: "web.json" } },
+        admin: {
+          catalogs: { en: owner === "catalog" ? collisionPath : "admin.json" },
+          ...(owner === "workbook" ? { excel: { file: collisionPath } } : {}),
+        },
+      });
+      await writeJson(root, "web.json", { keep: "Web" });
+      await writeJson(root, collisionPath, { keep: "Admin" });
+      const originals = await readFiles(root, ["web.json", collisionPath]);
+
+      await expect(
+        runCli(["excel", direction, "--project", "web"], {
+          cwd: root,
+          stdout: () => undefined,
+        }),
+      ).rejects.toThrow(`configured by both ${diagnostic}`);
+
+      expect(await readFiles(root, ["web.json", collisionPath])).toEqual(originals);
+      await expect(access(reportPath(root, direction))).rejects.toMatchObject({ code: "ENOENT" });
+    },
+  );
 
   it("imports an Excel-only project into missing JSON using its configured sheet", async () => {
     const root = temporaryDirectory.path;
@@ -422,7 +557,7 @@ async function writeWorkbook(
   root: string,
   file: string,
   rows: readonly (readonly (string | null)[])[],
-  sheet = "translations",
+  sheet = "sheet1",
 ): Promise<void> {
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet(sheet);
@@ -431,13 +566,16 @@ async function writeWorkbook(
   await workbook.xlsx.writeFile(join(root, file));
 }
 
-async function readTable(path: string): Promise<{
+async function readTable(
+  path: string,
+  sheet = "sheet1",
+): Promise<{
   headers: string[];
   values: Record<string, Record<string, ExcelJS.CellValue>>;
 }> {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.readFile(path);
-  const worksheet = workbook.getWorksheet("translations")!;
+  const worksheet = workbook.getWorksheet(sheet)!;
   const headers = Array.from(
     { length: worksheet.columnCount },
     (_, index) => worksheet.getCell(1, index + 1).value as string,

@@ -33,4 +33,25 @@ describe("defineConfig", () => {
 
     expect(defineConfig(config)).toBe(config);
   });
+
+  it("accepts omitted and partial Excel settings without filling defaults into the config", () => {
+    const config = {
+      projects: {
+        omitted: { catalogs: { en: "omitted.json" } },
+        empty: { catalogs: { en: "empty.json" }, excel: {} satisfies I18nExcelConfig },
+        sheet: {
+          catalogs: { en: "sheet.json" },
+          excel: { sheet: "译文" } satisfies I18nExcelConfig,
+        },
+        file: {
+          catalogs: { en: "file.json" },
+          excel: { file: "custom.xlsx" } satisfies I18nExcelConfig,
+        },
+      },
+    };
+
+    expect(defineConfig(config)).toBe(config);
+    expect(config.projects.empty.excel).toEqual({});
+    expect(config.projects.sheet.excel).toEqual({ sheet: "译文" });
+  });
 });
