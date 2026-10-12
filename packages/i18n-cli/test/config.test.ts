@@ -21,6 +21,7 @@ describe("defineConfig", () => {
     const excel = {
       file: "translations/web.xlsx",
       sheet: "translations",
+      backupDir: "archives/translations",
     } satisfies I18nExcelConfig;
     const config = {
       projects: {
@@ -47,11 +48,16 @@ describe("defineConfig", () => {
           catalogs: { en: "file.json" },
           excel: { file: "custom.xlsx" } satisfies I18nExcelConfig,
         },
+        backups: {
+          catalogs: { en: "backups.json" },
+          excel: { backupDir: "archives" } satisfies I18nExcelConfig,
+        },
       },
     };
 
     expect(defineConfig(config)).toBe(config);
     expect(config.projects.empty.excel).toEqual({});
     expect(config.projects.sheet.excel).toEqual({ sheet: "译文" });
+    expect(config.projects.backups.excel).toEqual({ backupDir: "archives" });
   });
 });

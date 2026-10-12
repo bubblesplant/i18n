@@ -1,67 +1,41 @@
 <!-- Adapted from antv-next-pro (MIT). -->
 <script setup lang="ts">
 import { useData, withBase } from "vitepress";
+import { useSidebarControl } from "vitepress/dist/client/theme-default/composables/sidebar.js";
 import DefaultTheme from "vitepress/theme";
 import { computed } from "vue";
 
-interface SidebarItem {
-  text?: string;
-  link?: string;
-  items?: SidebarItem[];
-}
-
-type SidebarConfig = SidebarItem[] | Record<string, SidebarItem[] | { items: SidebarItem[] }>;
-
-const { frontmatter, page, theme } = useData();
+const { frontmatter, page } = useData();
 const isHome = computed(() => frontmatter.value.layout === "home");
+const isGuide = computed(() => page.value.relativePath.startsWith("guide/"));
+const { isOpen: isSidebarOpen, close: closeSidebar } = useSidebarControl();
 
-function normalizeLink(link: string) {
-  const path = link.split(/[?#]/)[0] ?? "";
-  return `/${path.replace(/^\/+/, "")}`
-    .replace(/\.(?:md|html)$/, "")
-    .replace(/\/index$/, "/")
-    .replace(/\/$/, "");
-}
-
-const pagePath = computed(() => normalizeLink(page.value.relativePath));
-
-function currentSidebar(): SidebarItem[] {
-  const sidebar = theme.value.sidebar as SidebarConfig | undefined;
-  if (Array.isArray(sidebar)) return sidebar;
-  if (!sidebar || typeof sidebar !== "object") return [];
-  const prefix = Object.keys(sidebar)
-    .filter((key) => pagePath.value.startsWith(key))
-    .sort((a, b) => b.length - a.length)[0];
-  const entry = prefix ? sidebar[prefix] : undefined;
-  return Array.isArray(entry) ? entry : (entry?.items ?? []);
-}
-
-function includesPage(item: SidebarItem): boolean {
-  return (
-    (item.link !== undefined && normalizeLink(item.link) === pagePath.value) ||
-    (item.items?.some(includesPage) ?? false)
-  );
-}
-
-function firstLink(item: SidebarItem): string | undefined {
-  if (item.link) return item.link;
-  for (const child of item.items ?? []) {
-    const link = firstLink(child);
-    if (link) return link;
+function closeChapterMenu(event: MouseEvent) {
+  if (
+    !isSidebarOpen.value ||
+    event.button !== 0 ||
+    event.metaKey ||
+    event.ctrlKey ||
+    event.shiftKey ||
+    event.altKey
+  ) {
+    return;
   }
-  return undefined;
+  const link =
+    event.target instanceof Element
+      ? event.target.closest<HTMLAnchorElement>(".VPSidebar a[href]")
+      : null;
+  if (!link || link.target === "_blank") return;
+  const target = new URL(link.href);
+  // 默认主题只在切页时关闭抽屉，同页章节也应在跳转前关闭。
+  if (target.origin === location.origin && target.pathname === location.pathname && target.hash) {
+    closeSidebar();
+  }
 }
-
-const section = computed(() => {
-  const group = currentSidebar().find(includesPage);
-  if (!group?.text || !group.items?.length) return undefined;
-  const link = firstLink(group);
-  return link ? { text: group.text, link } : undefined;
-});
 </script>
 
 <template>
-  <DefaultTheme.Layout :class="{ 'bubbles-docs': !isHome }">
+  <DefaultTheme.Layout :class="{ 'bubbles-docs': !isHome }" @click.capture="closeChapterMenu">
     <template #layout-top>
       <div v-if="isHome" class="bubble-announcement">
         <a class="bubble-announcement-main" :href="withBase('/guide/getting-started')">
@@ -76,8 +50,8 @@ const section = computed(() => {
       <span v-if="!isHome" class="bubbles-docs-label">文档</span>
     </template>
     <template #doc-before>
-      <nav v-if="section" class="bubbles-breadcrumb" aria-label="面包屑导航">
-        <a :href="withBase(section.link)">
+      <nav v-if="isGuide" class="bubbles-breadcrumb" aria-label="面包屑导航">
+        <a :href="withBase('/')">
           <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
             <path
               d="M10 5.2C8.3 3.8 5.7 3.4 2.8 4.1v11.4c2.9-.7 5.5-.3 7.2 1.1m0-11.4c1.7-1.4 4.3-1.8 7.2-1.1v11.4c-2.9-.7-5.5-.3-7.2 1.1m0-11.4v11.4"
@@ -86,7 +60,7 @@ const section = computed(() => {
               stroke-linejoin="round"
             />
           </svg>
-          {{ section.text }}
+          文档
         </a>
         <span aria-hidden="true">/</span>
         <span aria-current="page">{{ page.title }}</span>

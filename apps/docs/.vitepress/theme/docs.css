@@ -285,37 +285,9 @@ html {
   }
 }
 
-@media (min-width: 960px) and (max-width: 1179px) {
-  /* Pages without headings still reserve the local navigation bar's height. */
-  .bubbles-docs .VPLocalNav.empty {
-    display: block;
-  }
-}
-
-@media (min-width: 1180px) {
+@media (min-width: 960px) {
   .bubbles-docs .VPLocalNav {
     display: none;
-  }
-  .bubbles-docs .VPDoc > .container {
-    display: flex;
-    justify-content: flex-start;
-    gap: 36px;
-  }
-  .bubbles-docs .VPDoc > .container > .content {
-    max-width: 740px;
-  }
-  .bubbles-docs .VPDoc .aside {
-    display: block;
-    flex: 0 0 176px;
-    width: 176px;
-    padding-left: 0;
-  }
-  .bubbles-docs .VPDoc .aside-container {
-    width: 176px;
-    padding-top: calc(var(--vp-nav-height) + 42px);
-  }
-  .bubbles-docs .VPDoc .aside-curtain {
-    width: 176px;
   }
 }
 
@@ -346,7 +318,7 @@ html {
   }
 }
 
-@media (min-width: 1180px) {
+@media (min-width: 960px) {
   .bubbles-docs .vp-doc [id] {
     scroll-margin-top: calc(var(--vp-nav-height) + 24px);
   }

@@ -118,7 +118,7 @@ pnpm exec bubbles-i18n excel export
 pnpm exec bubbles-i18n excel import
 ```
 
-扫描包含在 `sync` / `check` 中，没有独立 `scan` 命令。新增 key 的初始值为 key 本身，需要填写译文；`check` 不判断翻译是否完成。默认保留未使用词条，显式传入 `--prune` 才清理，扫描命令继续兼容 `--clean`。
+扫描包含在 `sync` / `check` 中，没有独立 `scan` 命令。新增 key 的初始值为 key 本身，需要填写译文；`check` 不判断翻译是否完成。默认保留未使用词条，显式传入 `--prune` 才清理。
 
 JSON ⇄ Excel 使用「key × 语言」表，交给译者填写后导入回 JSON。Excel 配置可省略，默认文件为配置目录下的 `.bubbles-i18n/<项目名>.xlsx`，默认工作表为精确小写 `sheet1`；`excel.file` 与 `excel.sheet` 可分别覆盖。两个方向默认保留目标端多出的 key，使用 `--prune` 才删除；已有值冲突使用 `-f` 才覆盖。只做 JSON / Excel 转换的项目可以省略 `include`，扫描时必须配置它。配置、扫描范围、报告、冲突规则与 CI 用法见[CLI 使用指南](apps/docs/guide/cli.md)。
 

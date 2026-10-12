@@ -81,7 +81,7 @@ export function renderScanMarkdown(options: {
     `${options.pruneCommand ?? options.retryCommand} --prune`,
     "```",
     "",
-    "`--clean` 继续作为 `--prune` 的兼容参数。扫描未匹配可读取源文件时拒绝清理；扫描为零 key 时，清空非空 JSON 还需显式 `--allow-empty`。",
+    "扫描未匹配可读取源文件时拒绝清理；扫描为零 key 时，`--prune` 拒绝清空非空 JSON。",
     "",
   );
   return lines.join("\n");

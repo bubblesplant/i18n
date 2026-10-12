@@ -211,7 +211,7 @@ function validateStringArray(
   }
 }
 
-/** 校验可选的 Excel 文件和工作表名称，省略字段的默认值由执行命令解析。 */
+/** 校验可选的 Excel 文件、工作表名称和备份目录，默认值由执行命令解析。 */
 function validateExcelConfig(value: unknown, path: string, prefix: string): void {
   if (!isRecord(value)) {
     throw new ConfigValidationError(`${prefix}: ${path} must be an object`);
@@ -225,6 +225,13 @@ function validateExcelConfig(value: unknown, path: string, prefix: string): void
     if (extname(value.file).toLowerCase() !== ".xlsx") {
       throw new ConfigValidationError(`${prefix}: ${path}.file must point to an .xlsx file`);
     }
+  }
+
+  if (
+    value.backupDir !== undefined &&
+    (typeof value.backupDir !== "string" || value.backupDir.trim() === "")
+  ) {
+    throw new ConfigValidationError(`${prefix}: ${path}.backupDir must be a non-empty string`);
   }
 
   if (value.sheet !== undefined) {

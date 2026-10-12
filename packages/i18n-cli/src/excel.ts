@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { constants } from "node:fs";
 import { copyFile, mkdir, open, readFile, rename, unlink, writeFile } from "node:fs/promises";
-import { basename, dirname, extname, isAbsolute, join, resolve } from "node:path";
+import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 
 import type { Cell, CellValue, Workbook, Worksheet } from "exceljs";
 
-import { DEFAULT_EXCEL_SHEET } from "./config.ts";
+import { DEFAULT_EXCEL_BACKUP_DIR, DEFAULT_EXCEL_SHEET } from "./config.ts";
 import { readCatalog, serializeCatalog } from "./sync.ts";
 import type { CatalogState } from "./sync.ts";
 
@@ -18,6 +18,8 @@ export interface ExcelProjectInput {
   excelPath: string;
   /** 工作表名称，省略时使用 sheet1。 */
   sheet?: string;
+  /** 绝对备份目录，省略时在规划阶段按 cwd 解析 .bubbles-i18n/backups。 */
+  backupDir?: string;
   locales: string[];
 }
 
@@ -128,6 +130,7 @@ interface WorkbookState {
 
 interface PlannedWrite {
   path: string;
+  backupDir: string;
   content: Buffer;
   kind: "json" | "excel";
   project: ExcelProjectPlan;
@@ -153,6 +156,7 @@ export async function planExcel(options: ExcelOptions): Promise<ExcelPlan> {
   const projects: ExcelProjectPlan[] = [];
 
   for (const input of options.projects) {
+    const backupDir = resolve(input.backupDir ?? DEFAULT_EXCEL_BACKUP_DIR);
     const project: ExcelProjectPlan = {
       project: input.name,
       excelPath: input.excelPath,
@@ -171,9 +175,9 @@ export async function planExcel(options: ExcelOptions): Promise<ExcelPlan> {
     const state = await loadWorkbook(input, project.sheet, options.direction, internal.inputs);
 
     if (options.direction === "export") {
-      await planExport(options, input, project, catalogs, state, internal.writes);
+      await planExport(options, input, project, catalogs, state, backupDir, internal.writes);
     } else {
-      planImport(options, input, project, catalogs, state, internal.writes);
+      planImport(options, input, project, catalogs, state, backupDir, internal.writes);
     }
 
     projects.push(project);
@@ -207,7 +211,7 @@ export async function applyExcel(plan: ExcelPlan): Promise<void> {
   const committed: PreparedWrite[] = [];
 
   try {
-    for (const write of internal.writes) {
+    for (const [index, write] of internal.writes.entries()) {
       const original = internal.inputs.get(write.path);
       if (original === undefined) throw new Error(`Missing input snapshot: "${write.path}"`);
       if (original !== null) {
@@ -219,7 +223,7 @@ export async function applyExcel(plan: ExcelPlan): Promise<void> {
       const backupPath =
         original === null
           ? null
-          : join(dirname(write.path), ".bubbles-i18n-backups", runId, basename(write.path));
+          : join(write.backupDir, runId, `${index + 1}-${basename(write.path)}`);
       const item: PreparedWrite = { ...write, temporaryPath, backupPath };
       prepared.push(item);
       await writeFile(temporaryPath, write.content, { flag: "wx" });
@@ -283,6 +287,7 @@ function validateOptions(options: ExcelOptions): void {
       throw new ExcelValidationError(`Invalid or duplicate Excel project: "${project.name}"`);
     }
     names.add(project.name);
+    if (project.backupDir !== undefined) validatePath(project.backupDir);
     validatePath(project.excelPath);
     if (extname(project.excelPath).toLowerCase() !== ".xlsx") {
       throw new ExcelValidationError(`Excel file must use .xlsx: "${project.excelPath}"`);
@@ -311,6 +316,21 @@ function validateOptions(options: ExcelOptions): void {
         throw new ExcelValidationError(`Excel projects must use distinct files: "${path}"`);
       }
       paths.add(identity);
+    }
+  }
+  for (const project of options.projects) {
+    const backupDir = resolve(project.backupDir ?? DEFAULT_EXCEL_BACKUP_DIR);
+    const comparableDir = process.platform === "win32" ? backupDir.toLowerCase() : backupDir;
+    for (const path of paths) {
+      const childPath = relative(path, comparableDir);
+      if (
+        childPath === "" ||
+        (childPath !== ".." && !childPath.startsWith(`..${sep}`) && !isAbsolute(childPath))
+      ) {
+        throw new ExcelValidationError(
+          `Backup directory must not be at or inside an Excel or catalog file path: "${backupDir}" (file "${path}").`,
+        );
+      }
     }
   }
 }
@@ -484,6 +504,7 @@ async function planExport(
   project: ExcelProjectPlan,
   catalogs: Map<string, CatalogState>,
   state: WorkbookState,
+  backupDir: string,
   writes: PlannedWrite[],
 ): Promise<void> {
   const keys = new Set<string>();
@@ -562,7 +583,7 @@ async function planExport(
   }
   if (changed) {
     const content = await serializeWorkbook(state.workbook);
-    writes.push({ path: input.excelPath, content, kind: "excel", project });
+    writes.push({ path: input.excelPath, backupDir, content, kind: "excel", project });
     project.writePaths.push(input.excelPath);
   }
 }
@@ -573,6 +594,7 @@ function planImport(
   project: ExcelProjectPlan,
   catalogs: Map<string, CatalogState>,
   state: WorkbookState,
+  backupDir: string,
   writes: PlannedWrite[],
 ): void {
   if (
@@ -626,7 +648,7 @@ function planImport(
         serializeCatalog(Object.fromEntries(next), catalog.format),
         "utf8",
       );
-      writes.push({ path, content, kind: "json", project });
+      writes.push({ path, backupDir, content, kind: "json", project });
       project.writePaths.push(path);
     }
   }

@@ -18,6 +18,9 @@ describe("runCli", () => {
     expect(output.join("\n")).toContain("用法：");
     expect(output.join("\n")).toContain("安全保护：");
     expect(output.join("\n")).toContain("显示帮助信息");
+    expect(output.join("\n")).toContain("--prune");
+    expect(output.join("\n")).not.toContain("--clean");
+    expect(output.join("\n")).not.toContain("--allow-empty");
   });
 
   it("discovers config, syncs catalogs and writes relative report paths", async () => {
@@ -84,7 +87,7 @@ describe("runCli", () => {
     await writeFile(join(root, "locales", "zh_CN.json"), "{}\n", "utf8");
     await writeConfig(root);
 
-    await expect(runCli(["sync", "--clean"], { cwd: root, stdout: () => undefined })).resolves.toBe(
+    await expect(runCli(["sync", "--prune"], { cwd: root, stdout: () => undefined })).resolves.toBe(
       0,
     );
     expect(JSON.parse(await readFile(join(root, "locales", "en_US.json"), "utf8"))).toEqual({
@@ -156,7 +159,7 @@ describe("runCli", () => {
     }
   });
 
-  it("refuses clean when include patterns match no source files", async () => {
+  it("refuses prune when include patterns match no source files", async () => {
     const root = temporaryDirectory.path;
     await mkdir(join(root, "locales"), { recursive: true });
     await writeFile(join(root, "locales", "en_US.json"), '{"old":"Translation"}\n', "utf8");
@@ -164,7 +167,7 @@ describe("runCli", () => {
     await writeConfig(root);
 
     await expect(
-      runCli(["sync", "--clean", "--allow-empty"], { cwd: root, stdout: () => undefined }),
+      runCli(["sync", "--prune"], { cwd: root, stdout: () => undefined }),
     ).rejects.toBeInstanceOf(CliUsageError);
     expect(JSON.parse(await readFile(join(root, "locales", "en_US.json"), "utf8"))).toEqual({
       old: "Translation",
@@ -309,14 +312,42 @@ describe("runCli", () => {
     ).resolves.toBe(1);
   });
 
-  it("rejects unsafe option combinations", async () => {
+  it.each(["--clean", "--allow-empty"])("rejects removed option %s", async (option) => {
+    const errors: string[] = [];
     await expect(
-      runCli(["sync", "--allow-empty"], {
+      main(["sync", option], {
         cwd: temporaryDirectory.path,
         stdout: () => undefined,
+        stderr: (message) => errors.push(message),
       }),
-    ).rejects.toThrow("--allow-empty requires --clean");
+    ).resolves.toBe(2);
+    expect(errors.join("\n")).toContain(`Unknown option "${option}"`);
   });
+
+  it.each([false, true])(
+    "refuses to clear non-empty catalogs when a readable source has no keys, dry-run %s",
+    async (dryRun) => {
+      const root = temporaryDirectory.path;
+      await mkdir(join(root, "src"), { recursive: true });
+      await mkdir(join(root, "locales"), { recursive: true });
+      await writeFile(join(root, "src", "app.ts"), "// Translation calls removed.\n", "utf8");
+      const catalog = join(root, "locales", "en_US.json");
+      const original = '{"keep":"Translation"}\n';
+      await writeFile(catalog, original, "utf8");
+      await writeConfig(root);
+
+      await expect(
+        runCli(["sync", "--prune", ...(dryRun ? ["--dry-run"] : [])], {
+          cwd: root,
+          stdout: () => undefined,
+        }),
+      ).rejects.toThrow("source scan found no keys");
+      expect(await readFile(catalog, "utf8")).toBe(original);
+      await expect(access(join(root, "locales", "zh_CN.json"))).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+    },
+  );
 
   it("previews additions and removals without changing catalogs or creating missing ones", async () => {
     const root = temporaryDirectory.path;
@@ -329,7 +360,7 @@ describe("runCli", () => {
     await writeConfig(root);
 
     await expect(
-      runCli(["sync", "--dry-run", "--clean"], {
+      runCli(["sync", "--dry-run", "--prune"], {
         cwd: join(root, "src"),
         stdout: () => undefined,
       }),
@@ -381,7 +412,7 @@ describe("runCli", () => {
     expect(await readFile(firstCatalog, "utf8")).toBe('{"old":"Translation"}');
   });
 
-  it("refuses clean when every matched file is binary", async () => {
+  it("refuses prune when every matched file is binary", async () => {
     const root = temporaryDirectory.path;
     await mkdir(join(root, "src"), { recursive: true });
     await mkdir(join(root, "locales"), { recursive: true });
@@ -390,7 +421,7 @@ describe("runCli", () => {
     await writeConfig(root);
 
     await expect(
-      runCli(["sync", "--clean", "--allow-empty"], {
+      runCli(["sync", "--prune"], {
         cwd: root,
         stdout: () => undefined,
       }),
@@ -405,7 +436,7 @@ describe("runCli", () => {
     ["sync", "--unknown"],
     ["sync", "--config"],
     ["sync", "--project="],
-    ["check", "--clean"],
+    ["check", "--prune"],
     ["check", "--dry-run"],
     ["sync", "--fail-on-stale"],
   ])("returns exit code 2 with a usage diagnostic for %j", async (...arguments_) => {

@@ -35,6 +35,7 @@ async function makeProject(
     name,
     catalogs,
     excelPath: join(directory, `${name}.xlsx`),
+    backupDir: join(directory, ".bubbles-i18n", "backups"),
     sheet: "translations",
     locales: Object.keys(messages),
   };
@@ -134,6 +135,54 @@ describe("Excel synchronization", () => {
 
     expect(await readMessages(input.catalogs.en!)).toEqual({ greeting: "Hello" });
     expect(await readFile(input.excelPath)).toEqual(excelBefore);
+  });
+
+  it("resolves an omitted backup directory from cwd while planning", async () => {
+    const root = temporaryDirectory.path;
+    const input = await makeProject(root, "web", { en: { new: "New" } });
+    delete input.backupDir;
+    await writeWorkbook(input, [["old", "Old"]]);
+    const original = await readFile(input.excelPath);
+    const cwdSpy = vi.spyOn(process, "cwd").mockReturnValue(root);
+    const plan = await planExcel(options([input])).finally(() => cwdSpy.mockRestore());
+
+    await applyExcel(plan);
+
+    expect(plan.projects[0]!.backupPaths).toHaveLength(1);
+    const backupPath = plan.projects[0]!.backupPaths[0]!;
+    expect(backupPath.startsWith(join(root, ".bubbles-i18n", "backups"))).toBe(true);
+    expect(await readFile(backupPath)).toEqual(original);
+  });
+
+  it("keeps the planned backup directory when caller settings change before applying", async () => {
+    const root = temporaryDirectory.path;
+    const input = await makeProject(root, "web", { en: { new: "New" } });
+    input.backupDir = join(root, "planned-backups");
+    await writeWorkbook(input, [["old", "Old"]]);
+    const original = await readFile(input.excelPath);
+    const plan = await planExcel(options([input]));
+    input.backupDir = join(root, "changed-backups");
+
+    await applyExcel(plan);
+
+    expect(plan.projects[0]!.backupPaths).toHaveLength(1);
+    const backupPath = plan.projects[0]!.backupPaths[0]!;
+    expect(backupPath.startsWith(join(root, "planned-backups"))).toBe(true);
+    expect(await readFile(backupPath)).toEqual(original);
+    await expect(access(input.backupDir)).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("rejects backup directories inside another selected project's input file", async () => {
+    const root = temporaryDirectory.path;
+    const first = await makeProject(root, "first", { en: { new: "New" } });
+    const second = await makeProject(root, "second", { en: { keep: "Keep" } });
+    first.backupDir = join(second.catalogs.en!, "backups");
+    const original = await readFile(second.catalogs.en!);
+
+    await expect(planExcel(options([first, second]))).rejects.toThrow(/backup/iu);
+
+    expect(await readFile(second.catalogs.en!)).toEqual(original);
+    await expect(access(first.excelPath)).rejects.toMatchObject({ code: "ENOENT" });
   });
 
   it("merges by exact headers while preserving row order, notes, styles and other sheets", async () => {
@@ -395,7 +444,7 @@ describe("Excel synchronization", () => {
     expect(plan.projects[0]!.backupPaths).toEqual([]);
     await expect(access(input.excelPath)).rejects.toMatchObject({ code: "ENOENT" });
     await expect(
-      access(join(temporaryDirectory.path, ".bubbles-i18n-backups")),
+      access(join(temporaryDirectory.path, ".bubbles-i18n", "backups")),
     ).rejects.toMatchObject({ code: "ENOENT" });
   });
 
@@ -542,7 +591,7 @@ describe("Excel synchronization", () => {
     expect(await readFile(input.excelPath)).toEqual(excelBefore);
     expect(await readFile(input.catalogs.en!)).toEqual(jsonBefore);
     await expect(
-      access(join(temporaryDirectory.path, ".bubbles-i18n-backups")),
+      access(join(temporaryDirectory.path, ".bubbles-i18n", "backups")),
     ).rejects.toMatchObject({ code: "ENOENT" });
   });
 
@@ -748,6 +797,7 @@ describe("Excel synchronization", () => {
     await writeWorkbook(input, [["new", "New", "新增"]]);
     const enBefore = await readFile(input.catalogs.en!);
     const zhBefore = await readFile(input.catalogs.zh!);
+    input.backupDir = join(temporaryDirectory.path, "rollback-backups");
     const plan = await planExcel(options([input], { direction: "import" }));
     vi.mocked(rename).mockImplementation(async (source, target) => {
       if (target === input.catalogs.zh && String(source).endsWith(".tmp"))
@@ -764,6 +814,9 @@ describe("Excel synchronization", () => {
     expect(await readFile(input.catalogs.en!)).toEqual(enBefore);
     expect(await readFile(input.catalogs.zh!)).toEqual(zhBefore);
     expect(plan.projects[0]!.backupPaths).toHaveLength(2);
+    expect(plan.projects[0]!.backupPaths.every((path) => path.startsWith(input.backupDir!))).toBe(
+      true,
+    );
     expect(await readFile(plan.projects[0]!.backupPaths[0]!)).toEqual(enBefore);
   });
 

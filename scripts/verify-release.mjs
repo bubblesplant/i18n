@@ -1,5 +1,13 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+  mkdirSync,
+} from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -114,7 +122,7 @@ const store: I18nStore = createI18n({ locale: 'en', message: { hello: 'Hello {na
 const values: MessageValues = { name: 'Bubbles' };
 const translation: string = store.getState().tr('hello', values);
 createElement(ReactProvider, { store, children: translation });
-const config: I18nConfig = defineConfig({ projects: { app: { include: ['src/**/*.ts'], catalogs: { en: 'en.json' } } } });
+const config: I18nConfig = defineConfig({ projects: { app: { include: ['src/**/*.ts'], catalogs: { en: 'en.json' }, excel: { backupDir: 'custom/backups' } } } });
 const options: ScanOptions = { callNames: ['tr'] };
 void [VueProvider, useReactStore, useVueStore, config, options];
 `;
@@ -174,11 +182,13 @@ void [VueProvider, useReactStore, useVueStore, config, options];
 
   // Exercise the installed dependency and the real bin, including CJS's lazy Excel import.
   const excelPath = join(consumer, ".bubbles-i18n/app.xlsx");
+  const backupDir = join(consumer, ".bubbles-i18n/backups");
   const catalogPath = join(consumer, "locales/en.json");
   run(process.execPath, [cli, "excel", "export", "--dry-run"], consumer);
   assert.ok(!existsSync(excelPath));
   assert.ok(existsSync(join(consumer, ".bubbles-i18n/reports/excel-export.md")));
   run(process.execPath, [cli, "excel", "export"], consumer);
+  assert.ok(!existsSync(backupDir));
   const cliRequire = createRequire(cli);
   const { default: ExcelJS } = await import(pathToFileURL(cliRequire.resolve("exceljs")).href);
   const workbook = new ExcelJS.Workbook();
@@ -197,7 +207,16 @@ void [VueProvider, useReactStore, useVueStore, config, options];
   assert.equal(readFileSync(catalogPath, "utf8"), beforeImport);
   run(process.execPath, [cli, "excel", "import", "--force", "--dry-run"], consumer);
   assert.equal(readFileSync(catalogPath, "utf8"), beforeImport);
+  assert.ok(!existsSync(backupDir));
   run(process.execPath, [cli, "excel", "import", "--force"], consumer);
+  const importRuns = readdirSync(backupDir);
+  assert.equal(importRuns.length, 1);
+  const importBackups = readdirSync(join(backupDir, importRuns[0]));
+  assert.equal(importBackups.length, 1);
+  assert.equal(
+    readFileSync(join(backupDir, importRuns[0], importBackups[0]), "utf8"),
+    beforeImport,
+  );
   const imported = JSON.parse(readFileSync(catalogPath, "utf8"));
   assert.equal(imported.hello, "Hello, Excel");
   assert.equal(imported.取消, "Cancel");
@@ -210,6 +229,7 @@ void [VueProvider, useReactStore, useVueStore, config, options];
     `const assert = require('node:assert/strict');\nconst { runCli } = require('@bubblesjs/i18n-cli');\nrunCli(['excel', 'export', '--project', 'app', '--force', '--prefer', 'json']).then(code => assert.equal(code, 0)).catch(error => { console.error(error); process.exitCode = 1; });\n`,
   );
   run(process.execPath, ["cli-excel.cjs"], consumer);
+  assert.equal(readdirSync(backupDir).length, 2);
   const exported = new ExcelJS.Workbook();
   await exported.xlsx.readFile(excelPath);
   const exportedSheet = exported.getWorksheet("sheet1");

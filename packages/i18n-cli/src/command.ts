@@ -1,7 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
-import { DEFAULT_EXCEL_SHEET, type I18nProjectConfig } from "./config.ts";
+import fg from "fast-glob";
+
+import { DEFAULT_EXCEL_BACKUP_DIR, DEFAULT_EXCEL_SHEET, type I18nProjectConfig } from "./config.ts";
 import { applyExcel, planExcel, type ExcelProjectInput } from "./excel.ts";
 import { scanFiles, type ScanFilesResult } from "./files.ts";
 import { loadConfig } from "./load-config.ts";
@@ -27,8 +29,7 @@ interface ParsedArguments {
   command: CliCommand;
   configPath?: string;
   projects: string[];
-  clean: boolean;
-  allowEmpty: boolean;
+  prune: boolean;
   dryRun: boolean;
   failOnStale: boolean;
   force: boolean;
@@ -76,19 +77,19 @@ const helpText = `用法：
   --locale <locale>     Excel 命令只处理指定语言；可以多次传入。
   --dry-run             生成预览报告，不修改 JSON 语言包/XLSX，不创建数据备份。
   --prune               删除目标端独有 key；Excel 清理需显式 --project。
-  --clean               sync --prune 的兼容参数。
   -f, --force           Excel 值冲突时允许执行，默认采用 Excel。
   --prefer excel|json   指定冲突优先方，必须配合 --force。
-  --allow-empty         配合 sync --prune/--clean，允许零 key 扫描清空语言包。
   --fail-on-stale       check 时发现废弃 key 也返回失败。
   -h, --help            显示帮助信息。
 
 安全保护：
-  项目的 include 未匹配到可读取文本源文件时，--clean 始终拒绝执行。
+  项目的 include 未匹配到可读取文本源文件时，--prune 拒绝执行。
+  扫描为零 key 时，--prune 拒绝清空非空 JSON 语言包。
   扫描保留已有翻译；新增项默认使用 key 作为翻译值。
   Excel 普通命令有值冲突时退出 1，所有选中项目数据均不写入。
   多余 key 默认保留并逐项报告；--prune 不解决值冲突。
   Excel 默认文件：.bubbles-i18n/<项目名>.xlsx，默认工作表：sheet1。
+  Excel 备份默认写入 .bubbles-i18n/backups；配置 excel.backupDir 可自定义目录。
   报告：.bubbles-i18n/reports/{sync,excel-export,excel-import}.md。
   sync/check 默认写 .bubbles-i18n/report.json；配置 report: false 可关闭，字符串可自定义路径。`;
 
@@ -118,10 +119,12 @@ export async function runCli(
       catalogs: resolveCatalogs(loaded.rootDir, project.catalogs),
     }),
   );
-  const reportPath =
-    (options.command === "sync" || options.command === "check") && loaded.config.report !== false
+  const configuredReportPath =
+    loaded.config.report !== false
       ? resolveFromRoot(loaded.rootDir, loaded.config.report ?? ".bubbles-i18n/report.json")
       : undefined;
+  const reportPath =
+    options.command === "sync" || options.command === "check" ? configuredReportPath : undefined;
 
   const markdownPath =
     options.command === "check"
@@ -132,11 +135,27 @@ export async function runCli(
           "reports",
           `${options.command.replace(" ", "-")}.md`,
         );
-  const excelPaths = Object.entries(loaded.config.projects).map(([name, project]) => ({
-    name,
-    path: resolveExcelConfig(loaded.rootDir, name, project).excelPath,
-  }));
+  const excelPaths = Object.entries(loaded.config.projects).map(([name, project]) => {
+    const excel = resolveExcelConfig(loaded.rootDir, name, project);
+    return { name, path: excel.excelPath, backupDir: excel.backupDir };
+  });
   validateOutputPaths(allProjectCatalogs, reportPath, loaded.configPath, excelPaths, markdownPath);
+  validateBackupDirectories(excelPaths, [
+    loaded.configPath,
+    ...allProjectCatalogs.flatMap((project) => Object.values(project.catalogs)),
+    ...excelPaths.map((excel) => excel.path),
+    ...(configuredReportPath ? [configuredReportPath] : []),
+    ...["sync", "excel-export", "excel-import"].map((command) =>
+      resolve(loaded.rootDir, ".bubbles-i18n", "reports", `${command}.md`),
+    ),
+  ]);
+  const backupExcludes = [
+    ...new Set(
+      excelPaths.map(
+        (excel) => `${fg.convertPathToPattern(excel.backupDir).replace(/\/$/u, "")}/**`,
+      ),
+    ),
+  ];
   if (markdownPath)
     await assertSafeMarkdownTarget(
       markdownPath,
@@ -161,13 +180,13 @@ export async function runCli(
         const scan = await scanFiles({
           rootDir: loaded.rootDir,
           include: project.include,
-          exclude: [...(project.exclude ?? []), "**/.bubbles-i18n/**"],
+          exclude: [...(project.exclude ?? []), ...backupExcludes],
           callNames: loaded.config.callNames,
         });
 
-        if (options.clean && scan.files.length === scan.skippedBinaryFiles.length) {
+        if (options.prune && scan.files.length === scan.skippedBinaryFiles.length) {
           throw new CliUsageError(
-            `Refusing --clean for project "${name}" because its include patterns matched no readable source files.`,
+            `Refusing --prune for project "${name}" because its include patterns matched no readable source files.`,
           );
         }
 
@@ -192,8 +211,7 @@ export async function runCli(
         project: execution.name,
         catalogs: execution.catalogs,
         keys: execution.scan.keys,
-        clean: options.clean,
-        allowEmpty: options.allowEmpty,
+        clean: options.prune,
         dryRun: true,
       }),
     ),
@@ -201,7 +219,7 @@ export async function runCli(
 
   let fileReports = previews.flat();
   const retryCommand = createReplayCommand(options);
-  const pruneCommand = `${createScopeCommand(options)}${options.allowEmpty ? " --allow-empty" : ""}`;
+  const pruneCommand = createScopeCommand(options);
   if (markdownPath) {
     await writeMarkdownReport(
       markdownPath,
@@ -217,8 +235,7 @@ export async function runCli(
             project: execution.name,
             catalogs: execution.catalogs,
             keys: execution.scan.keys,
-            clean: options.clean,
-            allowEmpty: options.allowEmpty,
+            clean: options.prune,
           })),
         );
       }
@@ -244,7 +261,7 @@ export async function runCli(
   }));
   const report = createSyncReport({
     command: options.command,
-    clean: options.clean,
+    clean: options.prune,
     dryRun: options.command === "check" || options.dryRun,
     files: portableReports,
   });
@@ -341,7 +358,7 @@ async function runExcelCommand(
     projects,
     force: options.force,
     prefer: options.prefer,
-    prune: options.clean,
+    prune: options.prune,
     dryRun: options.dryRun,
   });
   const retryCommand = createReplayCommand(options);
@@ -425,8 +442,7 @@ function createScopeCommand(options: ParsedArguments, projects = options.project
 /** 保留本次命令语义；选择另一冲突优先方时只移除原强制与优先方参数。 */
 function createReplayCommand(options: ParsedArguments, includeResolution = true): string {
   const words = [createScopeCommand(options)];
-  if (options.clean) words.push("--prune");
-  if (options.allowEmpty) words.push("--allow-empty");
+  if (options.prune) words.push("--prune");
   if (options.force && includeResolution) words.push("--force", "--prefer", options.prefer);
   if (options.dryRun) words.push("--dry-run");
   return words.join(" ");
@@ -446,8 +462,7 @@ function parseArguments(arguments_: readonly string[]): ParsedArguments {
 
   let configPath: string | undefined;
   const projects = new Set<string>();
-  let clean = false;
-  let allowEmpty = false;
+  let prune = false;
   let dryRun = false;
   let failOnStale = false;
   let force = false;
@@ -491,15 +506,7 @@ function parseArguments(arguments_: readonly string[]): ParsedArguments {
         throw new CliUsageError("--prefer excel and --prefer json are mutually exclusive.");
       prefer = value;
     } else if (argument === "--prune") {
-      clean = true;
-    } else if (argument === "--clean") {
-      if (excel)
-        throw new CliUsageError(
-          "--clean is only available with sync; use --prune for Excel commands.",
-        );
-      clean = true;
-    } else if (argument === "--allow-empty") {
-      allowEmpty = true;
+      prune = true;
     } else if (argument === "--dry-run") {
       dryRun = true;
     } else if (argument === "--fail-on-stale") {
@@ -509,8 +516,8 @@ function parseArguments(arguments_: readonly string[]): ParsedArguments {
     }
   }
 
-  if (command === "check" && clean) {
-    throw new CliUsageError("--clean/--prune is not available with check.");
+  if (command === "check" && prune) {
+    throw new CliUsageError("--prune is not available with check.");
   }
   if (command === "check" && dryRun) {
     throw new CliUsageError("check is already read-only; --dry-run is only available with sync.");
@@ -518,24 +525,19 @@ function parseArguments(arguments_: readonly string[]): ParsedArguments {
   if (command !== "check" && failOnStale) {
     throw new CliUsageError("--fail-on-stale is only available with the check command.");
   }
-  if (allowEmpty && !clean) {
-    throw new CliUsageError("--allow-empty requires --clean or --prune.");
-  }
-  if (excel && allowEmpty) throw new CliUsageError("--allow-empty is only available with sync.");
   if (!excel && (force || prefer || locales.size))
     throw new CliUsageError(
       "--force, --prefer and --locale are only available with Excel commands.",
     );
   if (prefer && !force) throw new CliUsageError("--prefer requires --force.");
-  if (excel && clean && projects.size === 0)
+  if (excel && prune && projects.size === 0)
     throw new CliUsageError("Excel --prune requires an explicit --project.");
 
   return {
     command,
     configPath,
     projects: [...projects],
-    clean,
-    allowEmpty,
+    prune,
     dryRun,
     failOnStale,
     force,
@@ -615,7 +617,7 @@ function resolveExcelConfig(
   rootDir: string,
   name: string,
   project: I18nProjectConfig,
-): { excelPath: string; sheet: string } {
+): { excelPath: string; sheet: string; backupDir: string } {
   let file = project.excel?.file;
   if (file === undefined) {
     let filename: string;
@@ -634,7 +636,31 @@ function resolveExcelConfig(
   return {
     excelPath: resolveFromRoot(rootDir, file),
     sheet: project.excel?.sheet ?? DEFAULT_EXCEL_SHEET,
+    backupDir: resolveFromRoot(rootDir, project.excel?.backupDir ?? DEFAULT_EXCEL_BACKUP_DIR),
   };
+}
+
+/** 备份目录不能占用已配置文件本身或其下级路径，避免先创建目录阻断数据和报告写入。 */
+function validateBackupDirectories(
+  projects: readonly { name: string; backupDir: string }[],
+  files: readonly string[],
+): void {
+  for (const project of projects) {
+    for (const file of files) {
+      const childPath = relative(
+        normalizeComparablePath(file),
+        normalizeComparablePath(project.backupDir),
+      );
+      if (
+        childPath === "" ||
+        (childPath !== ".." && !childPath.startsWith(`..${sep}`) && !isAbsolute(childPath))
+      ) {
+        throw new CliUsageError(
+          `Backup directory for project "${project.name}" must not be at or inside a configured file path: "${project.backupDir}" (file "${file}").`,
+        );
+      }
+    }
+  }
 }
 
 /** 检查语言包路径是否重复，并防止报告路径覆盖语言包或配置文件。 */

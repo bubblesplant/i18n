@@ -52,21 +52,26 @@ export default defineConfig({
 });
 ```
 
-| 配置                          | 含义                                                                                         |
-| ----------------------------- | -------------------------------------------------------------------------------------------- |
-| `callNames`                   | 扫描调用名，默认 `["tr"]`                                                                    |
-| `projects.<name>.include`     | 扫描时必需的非空 glob 列表；仅维护 Excel 时可省略                                            |
-| `projects.<name>.exclude`     | 扫描时额外排除的 glob 列表                                                                   |
-| `projects.<name>.catalogs`    | locale 到扁平字符串 JSON 的映射，扫描与 Excel 共用                                           |
-| `projects.<name>.excel.file`  | 可选 `.xlsx` 路径，默认 `.bubbles-i18n/<项目名>.xlsx`，相对配置目录                          |
-| `projects.<name>.excel.sheet` | 可选托管翻译 sheet 名，默认精确小写 `sheet1`                                                 |
-| `report`                      | 省略时写 `.bubbles-i18n/report.json`；`false` 关闭，字符串自定义路径；Excel 命令不使用此配置 |
+| 配置                              | 含义                                                                                         |
+| --------------------------------- | -------------------------------------------------------------------------------------------- |
+| `callNames`                       | 扫描调用名，默认 `["tr"]`                                                                    |
+| `projects.<name>.include`         | 扫描时必需的非空 glob 列表；仅维护 Excel 时可省略                                            |
+| `projects.<name>.exclude`         | 扫描时额外排除的 glob 列表                                                                   |
+| `projects.<name>.catalogs`        | locale 到扁平字符串 JSON 的映射，扫描与 Excel 共用                                           |
+| `projects.<name>.excel.file`      | 可选 `.xlsx` 路径，默认 `.bubbles-i18n/<项目名>.xlsx`，相对配置目录                          |
+| `projects.<name>.excel.sheet`     | 可选托管翻译 sheet 名，默认精确小写 `sheet1`                                                 |
+| `projects.<name>.excel.backupDir` | 可选备份目录，默认配置目录下的 `.bubbles-i18n/backups`；支持相对配置目录的路径或绝对路径     |
+| `report`                          | 省略时写 `.bubbles-i18n/report.json`；`false` 关闭，字符串自定义路径；Excel 命令不使用此配置 |
 
 所有路径相对配置文件所在目录。默认向上查找配置，同目录依次尝试 `i18n.config.ts`、`.mts`、`.js`、`.mjs`、`.cts`、`.cjs`。ESM 使用 `export default`，CommonJS 使用 `module.exports`；TypeScript 配置由 Node.js 原生加载，使用可擦除类型语法。
 
 不传 `--project` 时选择全部项目。`sync` / `check` 所选项目必须有非空 `include`；只维护 Excel 的项目可仅配置 `catalogs`。扫描命令选择缺少 `include` 的项目时返回 `2`，可通过 `--project` 选择要扫描的项目。
 
 `excel` 整体省略或设为 `{}` 均使用默认文件与工作表。只配置 `sheet` 时文件仍取默认值，只配置 `file` 时工作表仍为 `sheet1`；两项可分别自定义。扫描与 Excel 命令加载配置时都会解析各项目的独立 Excel 路径，例如 `web` 和 `admin` 分别使用 `.bubbles-i18n/web.xlsx` 与 `.bubbles-i18n/admin.xlsx`；特殊字符及 Windows 保留名会在文件名中安全编码。需要覆盖默认值时，可在项目中配置 `excel: { file: "translations/web.xlsx", sheet: "review" }`。
+
+备份目录默认是配置目录下的 `.bubbles-i18n/backups`。可单独配置 `excel: { backupDir: "translation-backups" }` 覆盖备份目录，文件与工作表仍使用默认值；`backupDir` 的相对路径以配置目录为基准，也可使用绝对路径。省略整个 `excel` 或省略 `backupDir` 时均使用默认备份目录。
+
+备份目录不能与配置中任一项目的 JSON / Excel 文件、三个默认 Markdown 报告或启用的扫描 JSON 报告路径相同，也不能位于这些文件路径之下；校验覆盖全部项目，包括本次未选中的项目。
 
 ## 完整工作流
 
@@ -117,38 +122,36 @@ pnpm exec bubbles-i18n check --project web
 | `--locale <locale>`    | Excel                           | 语言选择，可以重复；默认项目全部语言       |
 | `--dry-run`            | `sync` / Excel                  | 写预览报告，不改 JSON 语言包或 Excel 数据  |
 | `--prune`              | `sync` / Excel                  | 删除目标端独有 key；Excel 必须显式选择项目 |
-| `--clean`              | `sync`                          | 兼容旧清理参数，与 `--prune` 同义          |
-| `--allow-empty`        | `sync --prune` / `sync --clean` | 有可读取源码但 key 为空时，允许清空 JSON   |
 | `--force` / `-f`       | Excel                           | 解决值冲突，默认 Excel；不隐含删除         |
 | `--prefer excel\|json` | Excel                           | 明确冲突优先方，必须搭配 `--force`         |
 | `--fail-on-stale`      | `check`                         | 多余 key 也导致检查失败                    |
 
-`targetOnly` 表示目标端存在、来源端不存在的 key。扫描以源码 key 集合为准；导出以项目全部已配置语言 JSON 的 key 并集为准；导入以 Excel 的 key 行为准。
+表中命令省略 `pnpm exec bubbles-i18n` 前缀。
 
-| 情况 / 目的               | 命令示例                                                                         | 行为                                         |
-| ------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------- |
-| 扫描补齐 JSON             | `bubbles-i18n sync --project web`                                                | 缺失 key 补入，已有译文保留                  |
-| 来源新增 key              | `bubbles-i18n excel export --project web` / `excel import --project web`         | 按方向补入目标端，不属于值冲突               |
-| 目标端多余 key            | 普通 `sync` / `excel export` / `excel import`                                    | 保留并逐项报告，普通命令可成功               |
-| 同 key、同语言值相同      | 普通 `excel export` / `excel import`                                             | 保持不变                                     |
-| 同 key、同语言值不同      | 普通 `excel export` / `excel import`                                             | 报告冲突，返回 `1`，所有选中项目不写数据     |
-| Excel 译文更新 JSON       | `bubbles-i18n excel import --project web --force`                                | 采用 Excel，等同于 `--force --prefer excel`  |
-| JSON 译文更新 Excel       | `bubbles-i18n excel export --project web --force --prefer json`                  | 采用 JSON                                    |
-| 导出保留 Excel 冲突值     | `bubbles-i18n excel export --project web --force`                                | 保留目标冲突值，仍补新 key，不回写 JSON      |
-| 导入保留 JSON 冲突值      | `bubbles-i18n excel import --project web --force --prefer json`                  | 保留目标冲突值，仍补新 key，不回写 Excel     |
-| 删除 JSON 多余 key        | `bubbles-i18n sync --project web --prune` / `excel import --project web --prune` | 分别以源码 / Excel key 集合为准              |
-| 删除 Excel 多余行         | `bubbles-i18n excel export --project web --prune`                                | 删除不在全部语言 JSON 并集中的行             |
-| 解决冲突并删除多余 key    | `bubbles-i18n excel import --project web --force --prune`                        | 值冲突与删除分别处理                         |
-| 预览上述写入组合          | 追加 `--dry-run`                                                                 | 生成报告，不写 JSON 语言包 / Excel 数据      |
-| Excel 空单元格 / 空字符串 | `bubbles-i18n excel import --project web`                                        | 保留 JSON 原值，不新增空值，不按整行缺失删除 |
-| CI 检查缺失 key           | `bubbles-i18n check --project web`                                               | 缺失 key 返回 `1`，多余项默认允许            |
-| CI 同时检查多余 key       | `bubbles-i18n check --project web --fail-on-stale`                               | 缺失或多余 key 都返回 `1`                    |
+| 流程           | 情况或意图           | 处理结果             | 命令                                                  |
+| ------------ | --------------- | ---------------- | --------------------------------------------------- |
+| 代码 → JSON    | 代码有，JSON 没有     | 补入 JSON          | `sync --project web`                                |
+| 代码 → JSON    | key 已存在         | 保留已有译文           | `sync --project web`                                |
+| 代码 → JSON    | JSON 有，代码没扫描到   | 保留，逐项写入报告        | `sync --project web`                                |
+| 代码 → JSON    | 删除上述多余 key      | 补入缺失项，删除多余项      | `sync --project web --prune`                        |
+| JSON → Excel | JSON 有，Excel 没有 | 补入 Excel         | `excel export --project web`                        |
+| JSON → Excel | Excel 有，JSON 没有 | 保留，逐项写入报告        | `excel export --project web`                        |
+| JSON → Excel | 删除 Excel 多余 key | 删除对应行            | `excel export --project web --prune`                |
+| JSON → Excel | 同 key、同语言，值不同   | 报告冲突并失败，数据文件不修改  | `excel export --project web`                        |
+| JSON → Excel | 冲突采用 Excel      | 保留 Excel 值       | `excel export --project web --force --prefer excel` |
+| JSON → Excel | 冲突采用 JSON       | 用 JSON 值更新 Excel | `excel export --project web --force --prefer json`  |
+| Excel → JSON | Excel 有，JSON 没有 | 补入 JSON          | `excel import --project web`                        |
+| Excel → JSON | JSON 有，Excel 没有 | 保留，逐项写入报告        | `excel import --project web`                        |
+| Excel → JSON | 删除 JSON 多余 key  | 删除对应 JSON 条目     | `excel import --project web --prune`                |
+| Excel → JSON | 同 key、同语言，值不同   | 报告冲突并失败，数据文件不修改  | `excel import --project web`                        |
+| Excel → JSON | 冲突采用 Excel      | 用 Excel 值更新 JSON | `excel import --project web --force --prefer excel` |
+| Excel → JSON | 冲突采用 JSON       | 保留 JSON 值        | `excel import --project web --force --prefer json`  |
 
 `--prune` 只删除目标端独有 key，不解决值冲突；`--force` 只决定冲突取值，不删除 key。普通转换遇到冲突时，计划新增和删除也不执行。采用目标端值时，两边仍可能不同，再次运行普通命令仍会报告这些差异。
 
 导出 `--locale` 只筛选语言值，不缩小用于判断多余行的全部语言 key 并集；导入只更新或删除所选语言的 JSON。可以重复指定项目和语言，例如 `--project web --project admin --locale zh-CN --locale en-US`。
 
-`check` 不修改语言包，不接受 `--dry-run`、`--prune` 或 `--clean`。`--force` 不跳过参数、格式、重复 key、表头或路径校验。
+`check` 不修改语言包，不接受 `--dry-run` 或 `--prune`。`--force` 不跳过参数、格式、重复 key、表头或路径校验。
 
 | 退出码 | 含义                                                                               |
 | ------ | ---------------------------------------------------------------------------------- |
@@ -172,13 +175,15 @@ pnpm exec bubbles-i18n check --project web
 
 所有所选项目先校验和比较，再写数据；未解决冲突时全部不写。扫描写入 JSON 语言包时沿用 BOM、换行、缩进和末尾换行，并用同目录临时文件原子替换；多文件写入不构成跨文件事务。
 
-Excel 转换实际修改已有目标文件时，备份到目标同目录的 `.bubbles-i18n-backups/<runId>/<filename>`，报告列出路径。先准备全部临时文件和备份，再提交；失败时尽力回滚，不能保证多文件事务。预览不创建数据临时文件或备份。
+Excel 转换实际修改已有目标文件时，备份到当前项目的 `excel.backupDir`，默认是配置目录下的 `.bubbles-i18n/backups`。备份路径为 `<backupDir>/<runId>/<fileIndex>-<filename>`；`fileIndex` 是本次全部计划写入文件中从 1 开始的序号，避免同名目标文件覆盖，报告列出实际备份路径。先准备全部临时文件和备份，再提交；失败时尽力回滚，不能保证多文件事务。预览不创建数据临时文件或备份。
 
 ## 扫描与 Excel 边界
 
 扫描支持 `tr("保存")`、静态模板字符串和调用边界上的注释；不提取 `tr(key)`、字符串拼接或带插值的模板字符串。扫描采用文本匹配，不使用 AST，注释和普通字符串中完整的调用文本也会被识别。动态 key 自行维护，删除前应先预览。CLI 不生成 `generated.ts`。
 
-默认排除 `.git`、`.pnpm-store`、`.vite`、`build`、`coverage`、`dist`、`node_modules`，以及 `.bubbles-i18n/**`、`.bubbles-i18n-backups/**` 下的报告和备份，不跟随符号链接，跳过含空字节的二进制文件。没有可读取源码时拒绝扫描清理，`--allow-empty` 也不能绕过；有源码但未扫描到 key 时，清空非空语言包需此参数。
+默认排除 `.git`、`.pnpm-store`、`.vite`、`build`、`coverage`、`dist`、`node_modules`，以及 `.bubbles-i18n/**`、`.bubbles-i18n-backups/**` 下的报告和备份，不跟随符号链接，跳过含空字节的二进制文件。没有可读取源码时拒绝扫描清理；有源码但未扫描到 key 时，也拒绝清空非空语言包。CLI 不提供绕过空来源保护的参数，应先核实扫描范围、函数名和动态 key。
+
+CLI 还自动排除配置中全部项目解析后的备份目录，包括本次未选中的项目。自定义 `backupDir` 应使用专用目录，避免其中的源码被排除。
 
 Excel 仅支持 `.xlsx`，一项目一文件、一个托管翻译 sheet，保留其他 sheet 和备注列。第一列表头是 `key`，语言表头是 `catalogs` 的 locale ID，locale 不能使用保留名 `key`。新文件包含全部语言表头；已有文件只要求本次所选语言的表头，未选语言缺列不阻断操作。key 和译文精确匹配，不自动 trim。
 
@@ -188,7 +193,7 @@ Excel 仅支持 `.xlsx`，一项目一文件、一个托管翻译 sheet，保留
 
 导出到 Excel 的单元格文本最多 32,767 个 UTF-16 代码单元，支持 Tab、LF / CR / CRLF、emoji、占位符和字面 `_xHHHH_` 文本。XML 不支持的控制字符、未配对的 UTF-16 代理项、U+FFFE 和 U+FFFF 会报错。写入时通过 ExcelJS 重写整本工作簿，对普通字符串单元格编码并重读验证，覆盖未选语言、备注列和其他 sheet；不符合限制的待保留字符串也会阻止导出。富文本、超链接、公式等复杂附加单元格若在重写后不能保持原值，会拒绝整个导出，不写数据。单元格值校验不保证嵌入对象等 Excel 高级特性完整保留，建议使用专门的翻译工作簿。
 
-Excel `--prune` 拒绝用空 JSON key 并集清空已有 Excel，或用空翻译 sheet 清空非空 JSON；本版 `--allow-empty` 只用于扫描。
+Excel `--prune` 拒绝用空 JSON key 并集清空已有 Excel，或用空翻译 sheet 清空非空 JSON。
 
 ## 编程 API
 
@@ -223,6 +228,8 @@ CommonJS 使用 `const { scanSource } = require("@bubblesjs/i18n-cli")`。
 | `ExcelOptions` / `ExcelPlan` / `ExcelProjectInput` 等类型                       | 描述转换参数、输入、差异与冲突                     |
 | `ExcelValidationError` / `ExcelConcurrentModificationError` / `ExcelApplyError` | 区分校验、并发修改与写入错误                       |
 | `runCli` / `main`                                                               | 执行命令；`runCli` 抛出异常，`main` 转为退出码 `2` |
+
+直接调用 `planExcel` 时，`ExcelProjectInput.backupDir` 可选；省略时在生成计划阶段按当前工作目录解析 `.bubbles-i18n/backups`。CLI 会传入按配置目录解析的绝对备份路径。
 
 完整示例见 [CLI 指南](https://github.com/bubblesplant/i18n/blob/main/apps/docs/guide/cli.md)，详细规则见 [JSON 与 Excel 同步规则参考](https://github.com/bubblesplant/i18n/blob/main/packages/i18n-cli/docs/excel-sync-plan.md)。
 

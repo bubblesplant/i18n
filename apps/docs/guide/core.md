@@ -2,7 +2,7 @@
 
 `@bubblesjs/i18n-core` 是框架无关的轻量国际化库，提供词条翻译、占位符插值、异步语言切换、状态订阅与可选的语言偏好持久化。支持浏览器、Node.js 与 SSR，发布 ESM、CommonJS 和 TypeScript 声明。
 
-安装：
+## 安装
 
 ```sh
 pnpm add @bubblesjs/i18n-core

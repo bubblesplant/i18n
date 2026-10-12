@@ -293,43 +293,38 @@ describe("Markdown CLI reports", () => {
     },
   );
 
-  it.each(["--prune", "--clean"])(
-    "preserves allow-empty in scan retry and scoped cleanup commands using %s",
-    async (pruneOption) => {
-      const root = temporaryDirectory.path;
-      await writeSimpleProject(root);
-      await mkdir(join(root, "src"), { recursive: true });
-      await writeFile(
-        join(root, "src", "app.ts"),
-        "// All translation calls have been removed.\n",
-        "utf8",
-      );
-      await writeFile(join(root, "web.json"), '{"obsolete":"Old"}', "utf8");
-      const json = await readFile(join(root, "web.json"));
+  it("preserves prune in scan retry and scoped cleanup commands", async () => {
+    const root = temporaryDirectory.path;
+    await writeSimpleProject(root);
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "src", "app.ts"), "tr('used')\n", "utf8");
+    await writeFile(join(root, "web.json"), '{"used":"Keep","obsolete":"Old"}', "utf8");
+    const json = await readFile(join(root, "web.json"));
 
-      expect(
-        await runCli(["sync", "--project", "web", pruneOption, "--allow-empty", "--dry-run"], {
-          cwd: root,
-          stdout: () => undefined,
-        }),
-      ).toBe(0);
+    expect(
+      await runCli(["sync", "--project", "web", "--prune", "--dry-run"], {
+        cwd: root,
+        stdout: () => undefined,
+      }),
+    ).toBe(0);
 
-      const report = await readFile(join(root, ".bubbles-i18n", "reports", "sync.md"), "utf8");
-      const scope = "pnpm exec bubbles-i18n sync --project web";
-      const commands = copyableCommands(report);
-      expect(commands).toEqual([
-        `${scope} --prune --allow-empty --dry-run`,
-        `${scope} --allow-empty --prune --dry-run`,
-        `${scope} --allow-empty --prune`,
-      ]);
-      expect(await readFile(join(root, "web.json"))).toEqual(json);
+    const report = await readFile(join(root, ".bubbles-i18n", "reports", "sync.md"), "utf8");
+    const scope = "pnpm exec bubbles-i18n sync --project web";
+    const commands = copyableCommands(report);
+    expect(commands).toEqual([
+      `${scope} --prune --dry-run`,
+      `${scope} --prune --dry-run`,
+      `${scope} --prune`,
+    ]);
+    expect(report).not.toContain("--clean");
+    expect(report).not.toContain("--allow-empty");
+    expect(await readFile(join(root, "web.json"))).toEqual(json);
 
-      expect(
-        await runCli(commands[2]!.split(" ").slice(3), { cwd: root, stdout: () => undefined }),
-      ).toBe(0);
-      expect(JSON.parse(await readFile(join(root, "web.json"), "utf8"))).toEqual({});
-    },
-  );
+    expect(
+      await runCli(commands[2]!.split(" ").slice(3), { cwd: root, stdout: () => undefined }),
+    ).toBe(0);
+    expect(JSON.parse(await readFile(join(root, "web.json"), "utf8"))).toEqual({ used: "Keep" });
+  });
 
   it("scopes Excel cleanup to every selected project when the original command selected all projects", async () => {
     const root = temporaryDirectory.path;

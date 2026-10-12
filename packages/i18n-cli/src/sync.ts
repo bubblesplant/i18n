@@ -118,8 +118,7 @@ async function planCatalog(
 
   if (clean && keys.size === 0 && existingKeys.length > 0 && !(options.allowEmpty ?? false)) {
     throw new EmptyScanCleanError(
-      `Refusing to clean non-empty catalog "${options.path}" because the source scan found no keys. ` +
-        "Pass allowEmpty: true only when clearing the catalog is intentional.",
+      `Refusing to prune non-empty catalog "${options.path}" because the source scan found no keys.`,
     );
   }
 

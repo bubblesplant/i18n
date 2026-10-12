@@ -1,5 +1,6 @@
-import { fileURLToPath, URL } from "node:url";
 import { defineConfig, postcssIsolateStyles } from "vitepress";
+
+import { guidePages, guideSidebar } from "./navigation.ts";
 
 const basePath = (process.env.DOCS_BASE ?? "/").trim().replace(/^\/+|\/+$/g, "");
 const base = basePath ? `/${basePath}/` : "/";
@@ -24,51 +25,26 @@ export default defineConfig({
         plugins: [postcssIsolateStyles({ includeFiles: [/vp-doc\.css$/] })],
       },
     },
-    resolve: {
-      alias: [
-        {
-          find: /^.*\/VPDocAsideOutline\.vue$/,
-          replacement: fileURLToPath(
-            new URL("./theme/components/BubblesOutline.vue", import.meta.url),
-          ),
-        },
-      ],
-    },
+  },
+  transformPageData(pageData) {
+    const index = guidePages.findIndex(
+      ({ link }) => `${link.slice(1)}.md` === pageData.relativePath,
+    );
+    if (index < 0) return;
+    const previous = guidePages[index - 1];
+    const next = guidePages[index + 1];
+    // 章节侧栏不参与跨页翻页，沿用顶部栏目的阅读顺序。
+    pageData.frontmatter.prev ??= previous ? { text: previous.text, link: previous.link } : false;
+    pageData.frontmatter.next ??= next ? { text: next.text, link: next.link } : false;
   },
   themeConfig: {
     logo: { src: "/mark.svg", alt: "BubblesJS i18n" },
     nav: [
-      { text: "快速开始", link: "/guide/getting-started" },
-      { text: "实现思路", link: "/guide/architecture" },
-      { text: "核心容器", link: "/guide/core" },
-      {
-        text: "框架适配",
-        items: [
-          { text: "React", link: "/guide/react" },
-          { text: "Vue", link: "/guide/vue" },
-          { text: "全局与局部使用", link: "/guide/scopes" },
-        ],
-      },
-      { text: "词条 CLI", link: "/guide/cli" },
+      ...guidePages.map(({ text, link }) => ({ text, link })),
       { text: "版本发布", link: "https://github.com/bubblesplant/i18n/releases" },
     ],
     socialLinks: [{ icon: "github", link: "https://github.com/bubblesplant/i18n" }],
-    sidebar: {
-      "/guide/": [
-        {
-          text: "使用指南",
-          items: [
-            { text: "快速开始", link: "/guide/getting-started" },
-            { text: "实现思路", link: "/guide/architecture" },
-            { text: "核心容器", link: "/guide/core" },
-            { text: "React 接入与使用", link: "/guide/react" },
-            { text: "Vue 接入与使用", link: "/guide/vue" },
-            { text: "全局与局部使用", link: "/guide/scopes" },
-            { text: "词条 CLI", link: "/guide/cli" },
-          ],
-        },
-      ],
-    },
+    sidebar: guideSidebar,
     search: {
       provider: "local",
       options: {
@@ -92,11 +68,15 @@ export default defineConfig({
         },
       },
     },
-    outline: { label: "本页目录", level: [2, 3] },
+    aside: false,
+    outline: false,
     docFooter: { prev: "上一篇", next: "下一篇" },
     lastUpdated: { text: "最后更新于" },
     returnToTopLabel: "返回顶部",
-    sidebarMenuLabel: "菜单",
+    sidebarMenuLabel: "本页内容",
+    navMenuLabel: "文档栏目",
+    mobileMenuLabel: "文档栏目",
+    extraMenuLabel: "更多栏目与设置",
     darkModeSwitchLabel: "主题",
     lightModeSwitchTitle: "切换到浅色模式",
     darkModeSwitchTitle: "切换到深色模式",

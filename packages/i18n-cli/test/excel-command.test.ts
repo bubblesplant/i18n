@@ -36,6 +36,9 @@ describe("Excel CLI commands", () => {
     await expect(access(join(root, ".bubbles-i18n", "report.json"))).rejects.toMatchObject({
       code: "ENOENT",
     });
+    await expect(access(join(root, ".bubbles-i18n", "backups"))).rejects.toMatchObject({
+      code: "ENOENT",
+    });
   });
 
   it.each([
@@ -199,6 +202,9 @@ describe("Excel CLI commands", () => {
     await expect(access(join(root, ".bubbles-i18n", "report.json"))).rejects.toMatchObject({
       code: "ENOENT",
     });
+    await expect(access(join(root, ".bubbles-i18n", "backups"))).rejects.toMatchObject({
+      code: "ENOENT",
+    });
     const errors: string[] = [];
     expect(
       await main(["sync"], {
@@ -256,6 +262,9 @@ describe("Excel CLI commands", () => {
 
       expect(await readFiles(root, files)).toEqual(originals);
       expect(await backupFiles(root)).toEqual([]);
+      await expect(access(join(root, ".bubbles-i18n", "backups"))).rejects.toMatchObject({
+        code: "ENOENT",
+      });
       const report = await readFile(reportPath(root, direction), "utf8");
       expect(report).toContain("值冲突阻断");
       expect(report).toContain("新增与删除也未执行");
@@ -331,6 +340,169 @@ describe("Excel CLI commands", () => {
     },
   );
 
+  it("resolves custom backup directories from the config when pruning from another cwd", async () => {
+    const root = temporaryDirectory.path;
+    const configRoot = join(root, "config");
+    const projectRoot = join(root, "project");
+    await mkdir(configRoot, { recursive: true });
+    await mkdir(join(projectRoot, "nested"), { recursive: true });
+    await writeConfig(configRoot, {
+      web: {
+        catalogs: { en: "../project/web.json" },
+        excel: { file: "../project/web.xlsx", backupDir: "../archives" },
+      },
+    });
+    await writeJson(projectRoot, "web.json", { used: "Same" });
+    await writeWorkbook(projectRoot, "web.xlsx", [
+      ["key", "en"],
+      ["used", "Same"],
+      ["extra", "Keep in backup"],
+    ]);
+    const original = await readFile(join(projectRoot, "web.xlsx"));
+
+    expect(
+      await runCli(
+        [
+          "excel",
+          "export",
+          "--config",
+          "../../config/i18n.config.mjs",
+          "--project",
+          "web",
+          "--prune",
+        ],
+        { cwd: join(projectRoot, "nested"), stdout: () => undefined },
+      ),
+    ).toBe(0);
+
+    expect((await readTable(join(projectRoot, "web.xlsx"))).values).toEqual({
+      used: { en: "Same" },
+    });
+    const backups = await backupFiles(root, "archives");
+    expect(backups).toHaveLength(1);
+    const backupPath = join(root, backups[0]!);
+    expect(await readFile(backupPath)).toEqual(original);
+    const report = await readFile(reportPath(configRoot, "export"), "utf8");
+    const backupLine = report.match(/## 数据备份\n\n- (.+)\n/)?.[1];
+    expect(backupLine).toBeDefined();
+    expect(JSON.parse(backupLine!.replace(/\\([\\*_[\]~!])/g, "$1"))).toBe(backupPath);
+    await expect(access(join(configRoot, ".bubbles-i18n", "backups"))).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+    await expect(access(join(projectRoot, "nested", "archives"))).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
+
+  it("keeps distinct backups for matching catalog basenames across locales and projects", async () => {
+    const root = temporaryDirectory.path;
+    await writeConfig(root, {
+      web: { catalogs: { en: "web/en/messages.json", fr: "web/fr/messages.json" } },
+      admin: { catalogs: { en: "admin/messages.json" } },
+    });
+    const paths = ["web/en/messages.json", "web/fr/messages.json", "admin/messages.json"];
+    await writeJson(root, paths[0]!, { old: "Old English" });
+    await writeJson(root, paths[1]!, { old: "Ancien français" });
+    await writeJson(root, paths[2]!, { old: "Old admin" });
+    const originals = await readFiles(root, paths);
+    await writeWorkbook(root, ".bubbles-i18n/web.xlsx", [
+      ["key", "en", "fr"],
+      ["new", "New English", "Nouveau français"],
+    ]);
+    await writeWorkbook(root, ".bubbles-i18n/admin.xlsx", [
+      ["key", "en"],
+      ["new", "New admin"],
+    ]);
+
+    expect(await runCli(["excel", "import"], { cwd: root, stdout: () => undefined })).toBe(0);
+
+    const backups = await backupFiles(root);
+    expect(backups).toHaveLength(3);
+    expect(new Set(backups).size).toBe(3);
+    expect(backups.every((path) => path.endsWith("messages.json"))).toBe(true);
+    const savedOriginals = await readFiles(root, backups);
+    expect(savedOriginals).toEqual(expect.arrayContaining(originals));
+    expect(await readJson(root, paths[0]!)).toEqual({ old: "Old English", new: "New English" });
+    expect(await readJson(root, paths[1]!)).toEqual({
+      old: "Ancien français",
+      new: "Nouveau français",
+    });
+    expect(await readJson(root, paths[2]!)).toEqual({ old: "Old admin", new: "New admin" });
+  });
+
+  it.each([
+    "web.json",
+    "web.json/backups",
+    "i18n.config.mjs/backups",
+    ".bubbles-i18n/admin.xlsx",
+    ".bubbles-i18n/report.json/backups",
+    ".bubbles-i18n/reports/excel-import.md/backups",
+  ])("rejects backup directory %s before changing any project data", async (backupDir) => {
+    const root = temporaryDirectory.path;
+    await writeConfig(root, {
+      web: { catalogs: { en: "web.json" }, excel: { backupDir } },
+      admin: { catalogs: { en: "admin.json" } },
+    });
+    await writeJson(root, "web.json", { new: "New" });
+    await writeJson(root, "admin.json", { keep: "Keep" });
+    const files = ["i18n.config.mjs", "web.json", "admin.json"];
+    const originals = await readFiles(root, files);
+
+    await expect(
+      runCli(["excel", "export", "--project", "web"], { cwd: root, stdout: () => undefined }),
+    ).rejects.toThrow(/backup/iu);
+
+    expect(await readFiles(root, files)).toEqual(originals);
+    await expect(access(join(root, ".bubbles-i18n", "web.xlsx"))).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
+
+  it("allows a disabled JSON report path to hold configured backups", async () => {
+    const root = temporaryDirectory.path;
+    const backupDir = ".bubbles-i18n/report.json";
+    await writeFile(
+      join(root, "i18n.config.mjs"),
+      `export default ${JSON.stringify({
+        projects: { web: { catalogs: { en: "web.json" }, excel: { backupDir } } },
+        report: false,
+      })}`,
+      "utf8",
+    );
+    await writeJson(root, "web.json", { new: "New" });
+    await writeWorkbook(root, ".bubbles-i18n/web.xlsx", [
+      ["key", "en"],
+      ["old", "Old"],
+    ]);
+    const original = await readFile(join(root, ".bubbles-i18n", "web.xlsx"));
+
+    expect(await runCli(["excel", "export"], { cwd: root, stdout: () => undefined })).toBe(0);
+
+    const backups = await backupFiles(root, backupDir);
+    expect(backups).toHaveLength(1);
+    expect(await readFile(join(root, backups[0]!))).toEqual(original);
+  });
+
+  it("excludes every configured backup directory from scanning with glob characters escaped", async () => {
+    const root = temporaryDirectory.path;
+    await mkdir(join(root, "src", "archive[1]"), { recursive: true });
+    await mkdir(join(root, "src", "archive1"), { recursive: true });
+    await writeFile(join(root, "src", "app.ts"), "tr('used')\n", "utf8");
+    await writeFile(join(root, "src", "archive[1]", "backup.ts"), "tr('archived')\n", "utf8");
+    await writeFile(join(root, "src", "archive1", "app.ts"), "tr('sibling')\n", "utf8");
+    await writeConfig(root, {
+      web: { include: ["src/**/*.ts"], catalogs: { en: "web.json" } },
+      admin: { catalogs: { en: "admin.json" }, excel: { backupDir: "src/archive[1]" } },
+    });
+    await writeJson(root, "web.json", { used: "Used", sibling: "Sibling", archived: "Archive" });
+
+    expect(
+      await runCli(["sync", "--project", "web", "--prune"], { cwd: root, stdout: () => undefined }),
+    ).toBe(0);
+
+    expect(await readJson(root, "web.json")).toEqual({ used: "Used", sibling: "Sibling" });
+  });
+
   it.each([
     { direction: "export", existingTarget: false },
     { direction: "export", existingTarget: true },
@@ -369,6 +541,9 @@ describe("Excel CLI commands", () => {
         await expect(access(join(root, targetName))).rejects.toMatchObject({ code: "ENOENT" });
       else expect(await readFile(join(root, targetName))).toEqual(target);
       expect(await backupFiles(root)).toEqual([]);
+      await expect(access(join(root, ".bubbles-i18n", "backups"))).rejects.toMatchObject({
+        code: "ENOENT",
+      });
       expect(await readFile(reportPath(root, direction), "utf8")).toContain("状态：预览");
     },
   );
@@ -398,6 +573,8 @@ describe("Excel CLI commands", () => {
             ],
       );
       const output: string[] = [];
+      const targetName = direction === "export" ? "web.xlsx" : "web.json";
+      const targetBeforePrune = await readFile(join(root, targetName));
 
       expect(
         await runCli(["excel", direction], {
@@ -405,6 +582,7 @@ describe("Excel CLI commands", () => {
           stdout: (message) => output.push(message),
         }),
       ).toBe(0);
+      expect(await backupFiles(root)).toEqual([]);
       const report = await readFile(reportPath(root, direction), "utf8");
       expect(report).toContain("目标端独有 key");
       expect(report).toContain('"extra"');
@@ -427,6 +605,9 @@ describe("Excel CLI commands", () => {
           : (await readJson(root, "web.json")).extra,
       ).toBeUndefined();
       expect(await readFile(reportPath(root, direction), "utf8")).toContain("已删除项");
+      const backups = await backupFiles(root);
+      expect(backups).toHaveLength(1);
+      expect(await readFile(join(root, backups[0]!))).toEqual(targetBeforePrune);
     },
   );
 
@@ -502,7 +683,8 @@ describe("Excel CLI commands", () => {
     { args: ["check", "--prune"], diagnostic: "not available with check" },
     { args: ["sync", "-f"], diagnostic: "only available with Excel commands" },
     { args: ["sync", "--locale", "en"], diagnostic: "only available with Excel commands" },
-    { args: ["excel", "export", "--clean"], diagnostic: "use --prune for Excel commands" },
+    { args: ["excel", "export", "--clean"], diagnostic: 'Unknown option "--clean"' },
+    { args: ["excel", "import", "--allow-empty"], diagnostic: 'Unknown option "--allow-empty"' },
     { args: ["excel", "export", "--config", "-f"], diagnostic: "--config requires a value" },
     { args: ["excel", "import", "--project", "-f"], diagnostic: "--project requires a value" },
     { args: ["excel", "export", "--locale", "-f"], diagnostic: "--locale requires a value" },
@@ -594,9 +776,10 @@ async function readFiles(root: string, files: string[]): Promise<Buffer[]> {
   return Promise.all(files.map((file) => readFile(join(root, file))));
 }
 
-async function backupFiles(root: string): Promise<string[]> {
+async function backupFiles(root: string, directory = ".bubbles-i18n/backups"): Promise<string[]> {
+  const prefix = `${directory.replaceAll("\\", "/")}/`;
   return (await readdir(root, { recursive: true })).filter(
-    (file) => file.includes(".bubbles-i18n-backups") && /\.(?:json|xlsx)$/u.test(file),
+    (file) => file.replaceAll("\\", "/").startsWith(prefix) && /\.(?:json|xlsx)$/u.test(file),
   );
 }
 
