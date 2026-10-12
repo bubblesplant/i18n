@@ -1,5 +1,11 @@
 # @bubblesjs/i18n-vue
 
+## 0.0.6
+
+### Patch Changes
+
+- @bubblesjs/i18n-core@0.0.6
+
 ## 0.0.5
 
 ### Patch Changes
