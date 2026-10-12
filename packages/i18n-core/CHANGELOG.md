@@ -1,5 +1,9 @@
 # @bubblesjs/i18n-core
 
+## 0.0.4
+
+No changes in this release.
+
 ## 0.0.3
 
 ### Patch Changes
