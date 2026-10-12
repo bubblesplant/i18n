@@ -1,5 +1,12 @@
 # @bubblesjs/i18n-cli
 
+## 0.0.6
+
+### Patch Changes
+
+- 6ceafb6: Excel 转换备份默认写入配置目录下的 .bubbles-i18n/backups，支持通过 excel.backupDir 自定义备份目录，同次转换以文件序号区分同名备份，并在扫描时排除配置的备份目录。
+- 6ceafb6: 移除 CLI 的 --clean 和 --allow-empty 参数，清理统一使用 --prune；扫描为空时拒绝清空非空 JSON，同步更新帮助信息和生成报告中的命令说明。
+
 ## 0.0.5
 
 ### Patch Changes
