@@ -1,0 +1,43 @@
+{
+  "name": "playground-vue",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vp dev",
+    "build": "vp build",
+    "preview": "vp preview",
+    "i18n:check": "bubbles-i18n check",
+    "i18n:export": "bubbles-i18n excel export",
+    "i18n:import": "bubbles-i18n excel import",
+    "i18n:sync": "bubbles-i18n sync",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "vue-tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@bubblesjs/i18n-core": "workspace:*",
+    "@bubblesjs/i18n-vue": "workspace:*",
+    "antdv-next": "catalog:",
+    "vue": "catalog:",
+    "vue-router": "catalog:"
+  },
+  "devDependencies": {
+    "@antdv-next/auto-import-resolver": "catalog:",
+    "@antfu/eslint-config": "catalog:",
+    "@bubblesjs/i18n-cli": "workspace:*",
+    "@types/node": "catalog:",
+    "@unocss/preset-attributify": "catalog:",
+    "@unocss/preset-wind4": "catalog:",
+    "@vitejs/plugin-vue": "catalog:",
+    "eslint": "catalog:",
+    "eslint-plugin-oxlint": "catalog:",
+    "sass": "catalog:",
+    "typescript": "catalog:",
+    "unocss": "catalog:",
+    "unplugin-auto-import": "catalog:",
+    "unplugin-vue-components": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
+    "vue-tsc": "catalog:"
+  }
+}

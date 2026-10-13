@@ -2,7 +2,16 @@
   "name": "@bubblesjs/i18n-vue",
   "version": "0.0.6",
   "description": "面向 Vue 3 的轻量国际化 Provider 和响应式 Composables。",
+  "homepage": "https://bubblesplant.github.io/i18n/",
+  "bugs": {
+    "url": "https://github.com/bubblesplant/i18n/issues"
+  },
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bubblesplant/i18n.git",
+    "directory": "packages/i18n-vue"
+  },
   "files": [
     "dist",
     "README.md",

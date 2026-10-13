@@ -76,7 +76,7 @@ export default function App() {
 
 两个后代组件使用相同的 `useI18n()` 写法，各自读取最近的容器。在同一组件返回的 JSX 中渲染 Provider，不会改变这个组件自身 Hook 的上下文。
 
-可[运行 Playground](./scopes#运行-playground)验证独立切换，或查看 [React 示例源码](https://github.com/bubblesplant/i18n/blob/main/apps/playground/src/examples/ReactExample.tsx)。
+可[运行 Playground](./scopes#运行-playground)验证独立切换，或查看 [React 局部示例源码](https://github.com/bubblesplant/i18n/blob/main/apps/playground/react/src/components/ProjectRegion.tsx)。
 
 ## 在组件外使用
 

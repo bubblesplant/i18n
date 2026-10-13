@@ -70,15 +70,19 @@ export const projectStore = createI18n({
 
 ## 运行 Playground
 
-仓库中的 playground 已提供 React / Vue 两种可切换的运行示例。首次运行，在仓库根目录执行：
+仓库中的 playground 使用 create-bubbles 的 Vue 和 React 模板提供两个独立前端应用，另有 [Hono + Vite+ 后端示例](./node)。首次运行，在仓库根目录执行：
 
 ```sh
 pnpm install
-pnpm --filter "playground^..." build
-pnpm dev
+pnpm --filter "./packages/*" build
+pnpm dev:vue
+pnpm dev:react
+pnpm dev:hono
 ```
 
-打开开发服务器输出的地址，默认是 `http://localhost:5173/`。本地依赖包的导出指向 `dist`，首次启动前需先构建 core 和两个框架适配包。
+每条开发命令只启动对应应用，需要同时运行时使用不同终端。`pnpm dev` 默认只启动 Vue。Vue 默认地址为 `http://localhost:5173/`，React 默认地址为 `http://localhost:5175/`。另一框架的示例启动后，可通过页面链接打开。本地依赖包的导出指向 `dist`，首次启动前需先构建 core、框架适配包和 CLI。三个项目各有独立的 `i18n.config.ts`，执行 `pnpm i18n:check` 可检查全部示例的词条。
+
+Hono 独立运行在 `http://localhost:5176/`，通过请求头 `Accept-Language` 选择语言，并按请求隔离全局和项目容器。接口调用与后端运行方式见 [Node.js / Hono](./node#verification)。
 
 可以直接验证：
 
@@ -86,8 +90,8 @@ pnpm dev
 2. 只切换项目为英文，全局文案继续显示中文。
 3. 切换全局语言，项目继续保持自己选择的语言。
 4. 创建任务后切换项目语言，任务数量保留，插值文案随语言更新。
-5. 在 React / Vue 之间切换，继续使用同一组容器的语言状态。
+5. 打开另一框架的应用，验证两套应用各自维护语言状态。
 
-页面的加载记录统计 `loaderMessage` 调用次数；默认中文通过静态导入加载，首屏调用次数也是 0。动态 `import()` 可以复用浏览器的模块缓存。任务计数属于各框架示例组件自身，切换框架会重新挂载组件。
+页面的加载记录统计 `loaderMessage` 调用次数；默认中文通过静态导入加载，首屏调用次数也是 0。动态 `import()` 可以复用浏览器的模块缓存。语言容器和任务计数分别属于各自应用，刷新后回到默认中文和零个任务。
 
 [Playground 说明与源码入口](https://github.com/bubblesplant/i18n/blob/main/apps/playground/README.md)列出初始化、语言包和两种框架的具体文件。

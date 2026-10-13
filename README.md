@@ -1,8 +1,8 @@
 # BubblesJS i18n
 
-一套用于 React、Vue 和普通 JavaScript 项目的国际化工具：core 负责加载词条与翻译，框架适配器让组件随语言变化更新，CLI 从项目源码收集 key、维护 JSON 语言包，并与 Excel 翻译表双向同步。
+一套用于 React、Vue、Node.js 和普通 JavaScript 项目的国际化工具：core 负责加载词条与翻译，框架适配器让组件随语言变化更新，CLI 从项目源码收集 key、维护 JSON 语言包，并与 Excel 翻译表双向同步。
 
-[GitHub 仓库](https://github.com/bubblesplant/i18n) · [版本发布 / GitHub Releases](https://github.com/bubblesplant/i18n/releases) · [实现思路](apps/docs/guide/architecture.md) · [快速开始](apps/docs/guide/getting-started.md)
+[GitHub 仓库](https://github.com/bubblesplant/i18n) · [版本发布 / GitHub Releases](https://github.com/bubblesplant/i18n/releases) · [实现思路](apps/docs/guide/architecture.md) · [快速开始](apps/docs/guide/getting-started.md) · [反馈问题](https://github.com/bubblesplant/i18n/issues/new) · [参与贡献](CONTRIBUTING.md)
 
 四个公开包当前均为 `0.0.2`，已发布到 npm。后续版本和变更记录请查看 GitHub Releases。
 
@@ -74,6 +74,10 @@ Vue 需要 `^3.5.43`，React 需要 `>=18.0.0`。没有框架时，直接调用 
 
 如果首屏词条也需要异步获取，或需要先恢复语言偏好，可选用 `await initI18n({ locale, loaderMessage, ... })`，等待加载完成后再挂载应用。`createI18n` 直接使用传入的 `message`；`initI18n` 先调用加载器取得初始词条，再返回容器。完整 API 与持久化见[核心容器](apps/docs/guide/core.md)。
 
+## Node.js 后端
+
+后端直接使用 `@bubblesjs/i18n-core`，按请求创建容器并调用 `store.getState().tr()`。前端通过 `Accept-Language` 传语言，后端匹配支持的语言；词条可以共享只读数据，可变语言容器按请求隔离。完整中间件、全局 / 局部路由与运行方式见 [Node.js / Hono 后端](apps/docs/guide/node.md)。
+
 ## CLI：扫描项目 → JSON ⇄ Excel
 
 安装开发工具，CLI 要求 Node.js `>=22.18.0`：
@@ -124,6 +128,8 @@ JSON ⇄ Excel 使用「key × 语言」表，交给译者填写后导入回 JSO
 
 ## 本地开发
 
+本仓库开发与 CI 使用 Node.js 26.x、pnpm 12.11.2，pnpm 的固定版本由根目录 `package.json` 的 `packageManager` 字段声明。环境准备与贡献流程见 [贡献指南](CONTRIBUTING.md)。
+
 ```bash
 pnpm install --frozen-lockfile
 pnpm docs:dev
@@ -132,11 +138,13 @@ pnpm docs:dev
 文档默认运行在 `http://localhost:5174`。首次运行 Playground，先构建本地依赖，再启动开发服务：
 
 ```bash
-pnpm --filter "playground^..." build
-pnpm dev
+pnpm --filter "./packages/*" build
+pnpm dev:vue   # 5173，pnpm dev 默认只启动 Vue
+pnpm dev:react # 5175
+pnpm dev:hono  # 5176
 ```
 
-Playground 默认端口为 5173，展示 React / Vue 的全局与局部国际化示例；运行方式和源码说明见 [Playground README](apps/playground/README.md)。
+Playground 下的 `vue/`、`react/`、`hono/` 是三个独立项目。Vue、React 使用 create-bubbles 模板，默认端口分别为 5173、5175；Hono + Vite+ 后端默认端口为 5176。三个应用分别启动，均配置了 i18n-cli；执行 `pnpm i18n:check` 可检查全部示例，也可用 `pnpm --filter playground-vue i18n:sync` 等命令单独维护语言包。前端展示全局与局部 Provider，后端展示请求语言识别和请求内的全局 / 局部词条。运行方式和源码说明见 [Playground README](apps/playground/README.md)。
 
 | 命令                                           | 用途                                           |
 | ---------------------------------------------- | ---------------------------------------------- |
@@ -147,4 +155,10 @@ Playground 默认端口为 5173，展示 React / Vue 的全局与局部国际化
 | `pnpm verify:packages` / `pnpm verify:release` | 验证本地产物和隔离安装的发布 tarball，需先构建 |
 | `pnpm ready`                                   | 完整质量检查、构建及产物验证，不执行发布       |
 
-四个公开包支持 ESM、CommonJS 和 TypeScript 声明，发布内容为 `dist`、README 和 LICENSE。根项目、docs 与 playground 为私有工作区。MIT 许可证。
+四个公开包支持 ESM、CommonJS 和 TypeScript 声明，发布内容为 `dist`、README 和 LICENSE。根项目、docs 与三个 playground 应用为私有工作区。MIT 许可证。
+
+## 反馈与贡献
+
+欢迎通过 [Issues](https://github.com/bubblesplant/i18n/issues) 反馈 Bug 和提出功能建议，也欢迎修正文档、完善示例或提交代码。反馈 Bug 时请提供包版本、复现步骤和最小复现示例。
+
+参与开发请先阅读 [贡献指南](CONTRIBUTING.md)，通过 Fork 提交面向 `main` 分支的 [Pull Request](https://github.com/bubblesplant/i18n/pulls)。PR 由维护者审核并合并。

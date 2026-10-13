@@ -1,0 +1,38 @@
+{
+  "name": "playground-react",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vp dev",
+    "build": "vp build",
+    "preview": "vp preview",
+    "i18n:check": "bubbles-i18n check",
+    "i18n:export": "bubbles-i18n excel export",
+    "i18n:import": "bubbles-i18n excel import",
+    "i18n:sync": "bubbles-i18n sync",
+    "check": "vp check",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@bubblesjs/i18n-core": "workspace:*",
+    "@bubblesjs/i18n-react": "workspace:*",
+    "antd": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "react-router": "catalog:"
+  },
+  "devDependencies": {
+    "@bubblesjs/i18n-cli": "workspace:*",
+    "@tailwindcss/vite": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "unplugin-auto-import": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
+  }
+}

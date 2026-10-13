@@ -1,4 +1,4 @@
-# CLI：扫描项目与 JSON / Excel 同步
+# 命令行工具
 
 `@bubblesjs/i18n-cli` 扫描项目中的静态翻译调用，补齐 JSON 语言包，并在 JSON 与 Excel 之间同步词条。命令名为 `bubbles-i18n`，同时提供 ESM / CommonJS 编程 API。
 

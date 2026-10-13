@@ -18,6 +18,8 @@ coverage/
 **/.vitepress/cache/
 **/.vitepress/dist/
 *.tgz
+apps/playground/*/src/types/auto-imports.d.ts
+apps/playground/vue/src/types/components.d.ts
 .bubbles-i18n/
 **/.bubbles-i18n-backups/
 

@@ -1,5 +1,6 @@
 packages:
   - apps/*
+  - apps/playground/*
   - packages/*
 
 catalogMode: prefer
@@ -8,20 +9,40 @@ catalog:
   "@changesets/cli": ^3.0.3
   "@commitlint/cli": ^21.2.2
   "@commitlint/config-conventional": ^21.2.2
+  "@hono/node-server": ^2.1.4
+  "@hono/vite-dev-server": ^0.26.1
   "@types/node": ^26
   "@types/react": ^19.0.0
   "@types/react-dom": ^19.0.0
+  "@antdv-next/auto-import-resolver": ^1.2.0
+  "@antfu/eslint-config": ^9.5.1
+  "@tailwindcss/vite": ^4.3.3
+  "@unocss/preset-attributify": ^66.11.0
+  "@unocss/preset-wind4": ^66.11.0
+  "@vitejs/plugin-react": ^6.1.2
   "@vitejs/plugin-vue": ^6.0.9
+  antd: ^6.6.6
+  antdv-next: ^1.6.0
+  eslint: ^10.12.0
+  eslint-plugin-oxlint: ^1.87.0
   exceljs: ^4.4.0
   fast-glob: ^3.3.3
+  hono: ^4.13.13
   jsdom: ^27.0.0
   react: ^19.0.0
   react-dom: ^19.0.0
+  react-router: ^8.4.0
+  sass: ^1.105.1
+  tailwindcss: ^4.3.3
   typescript: ^6.0.3
+  unocss: ^66.11.0
+  unplugin-auto-import: ^21.1.0
+  unplugin-vue-components: ^32.1.0
   vite: npm:@voidzero-dev/vite-plus-core@1.1.0
   vite-plus: 1.1.0
   vitepress: 2.0.0-alpha.20
   vue: ^3.5.43
+  vue-router: ^5.4.0
   vue-tsc: ^3.3.12
 overrides:
   vite@*: "catalog:"
@@ -30,3 +51,32 @@ peerDependencyRules:
     - vite
   allowedVersions:
     vite: "*"
+minimumReleaseAgeExclude:
+  - "@unocss/autocomplete@66.11.0"
+  - "@unocss/cli@66.11.0"
+  - "@unocss/config@66.11.0"
+  - "@unocss/core@66.11.0"
+  - "@unocss/extractor-arbitrary-variants@66.11.0"
+  - "@unocss/inspector@66.11.0"
+  - "@unocss/language-server@66.11.0"
+  - "@unocss/preset-attributify@66.11.0"
+  - "@unocss/preset-icons@66.11.0"
+  - "@unocss/preset-mini@66.11.0"
+  - "@unocss/preset-tagify@66.11.0"
+  - "@unocss/preset-typography@66.11.0"
+  - "@unocss/preset-uno@66.11.0"
+  - "@unocss/preset-web-fonts@66.11.0"
+  - "@unocss/preset-wind3@66.11.0"
+  - "@unocss/preset-wind4@66.11.0"
+  - "@unocss/preset-wind@66.11.0"
+  - "@unocss/rollup@66.11.0"
+  - "@unocss/rule-utils@66.11.0"
+  - "@unocss/transformer-attributify-jsx@66.11.0"
+  - "@unocss/transformer-compile-class@66.11.0"
+  - "@unocss/transformer-directives@66.11.0"
+  - "@unocss/transformer-variant-group@66.11.0"
+  - "@unocss/vite@66.11.0"
+  - antd@6.6.6
+  - unocss@66.11.0
+allowBuilds:
+  "@parcel/watcher": false

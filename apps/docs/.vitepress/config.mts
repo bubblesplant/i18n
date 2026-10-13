@@ -7,7 +7,8 @@ const base = basePath ? `/${basePath}/` : "/";
 
 export default defineConfig({
   title: "BubblesJS i18n",
-  description: "了解国际化实现思路，接入 Vue 与 React，并用 CLI 扫描项目、维护 JSON 词条",
+  description:
+    "了解国际化实现思路，接入 Vue、React 与 Node.js 后端，并用命令行工具扫描项目、维护 JSON 词条",
   lang: "zh-CN",
   base,
   cleanUrls: true,
@@ -42,6 +43,17 @@ export default defineConfig({
     nav: [
       ...guidePages.map(({ text, link }) => ({ text, link })),
       { text: "版本发布", link: "https://github.com/bubblesplant/i18n/releases" },
+      {
+        text: "参与贡献",
+        items: [
+          {
+            text: "贡献指南",
+            link: "https://github.com/bubblesplant/i18n/blob/main/CONTRIBUTING.md",
+          },
+          { text: "反馈问题", link: "https://github.com/bubblesplant/i18n/issues/new" },
+          { text: "查看 PR", link: "https://github.com/bubblesplant/i18n/pulls" },
+        ],
+      },
     ],
     socialLinks: [{ icon: "github", link: "https://github.com/bubblesplant/i18n" }],
     sidebar: guideSidebar,
@@ -71,6 +83,10 @@ export default defineConfig({
     aside: false,
     outline: false,
     docFooter: { prev: "上一篇", next: "下一篇" },
+    editLink: {
+      pattern: "https://github.com/bubblesplant/i18n/edit/main/apps/docs/:path",
+      text: "在 GitHub 上编辑此页",
+    },
     lastUpdated: { text: "最后更新于" },
     returnToTopLabel: "返回顶部",
     sidebarMenuLabel: "本页内容",

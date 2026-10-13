@@ -91,7 +91,7 @@ async function switchLocale() {
 </template>
 ```
 
-两个后代组件使用相同的 `useI18n()` 写法，各自读取最近的容器。可[运行 Playground](./scopes#运行-playground)验证独立切换，或查看 [Vue 示例源码](https://github.com/bubblesplant/i18n/blob/main/apps/playground/src/examples/VueExample.vue)。
+两个后代组件使用相同的 `useI18n()` 写法，各自读取最近的容器。可[运行 Playground](./scopes#运行-playground)验证独立切换，或查看 [Vue 局部示例源码](https://github.com/bubblesplant/i18n/blob/main/apps/playground/vue/src/components/ProjectRegion.vue)。
 
 ## 在组件外使用
 

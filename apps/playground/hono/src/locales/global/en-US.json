@@ -1,0 +1,6 @@
+{
+  "你好，{name}！": "Hello, {name}!",
+  "请求成功": "Request succeeded",
+  "接口不存在": "Endpoint not found",
+  "服务暂时不可用": "Service temporarily unavailable"
+}

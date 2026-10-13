@@ -43,7 +43,7 @@ function closeChapterMenu(event: MouseEvent) {
           <span>BubblesJS i18n · 从核心容器到 React 与 Vue 组件翻译</span>
           <span aria-hidden="true">→</span>
         </a>
-        <a class="bubble-announcement-cli" :href="withBase('/guide/cli')">词条 CLI ↗</a>
+        <a class="bubble-announcement-cli" :href="withBase('/guide/cli')">命令行工具 ↗</a>
       </div>
     </template>
     <template #nav-bar-title-after>
