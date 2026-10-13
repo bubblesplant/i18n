@@ -1,7 +1,7 @@
 import { createI18n } from "@bubblesjs/i18n-core";
-import { createLoadMonitor } from "../shared/load-monitor";
 import globalZhCN from "../locales/global/zh-CN.json";
 import projectZhCN from "../locales/project/zh-CN.json";
+import { createLoadMonitor } from "../shared/load-monitor";
 
 export const { records: localeLoads, observe } = createLoadMonitor();
 

@@ -1,4 +1,5 @@
-import { createStore, type LoadMessages } from "@bubblesjs/i18n-core";
+import type { LoadMessages } from "@bubblesjs/i18n-core";
+import { createStore } from "@bubblesjs/i18n-core";
 
 export type Scope = "global" | "project";
 export type PlaygroundLocale = "zh-CN" | "en-US";
