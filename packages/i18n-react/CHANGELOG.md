@@ -1,5 +1,13 @@
 # @bubblesjs/i18n-react
 
+## 0.0.8
+
+### Patch Changes
+
+- 8a6e7b2: 补齐公开包的 GitHub 仓库、问题反馈和文档站链接，方便使用者查看源码与参与贡献。
+- Updated dependencies [8a6e7b2]
+  - @bubblesjs/i18n-core@0.0.8
+
 ## 0.0.7
 
 ### Patch Changes
