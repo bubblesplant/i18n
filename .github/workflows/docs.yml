@@ -1,49 +1,59 @@
 name: Deploy docs
 
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
-  workflow_dispatch:
 
 concurrency:
   group: pages
   cancel-in-progress: false
 
-permissions:
-  contents: write
+permissions: {}
 
 jobs:
   deploy:
+    if: >-
+      github.repository == 'bubblesplant/i18n' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      (github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'workflow_dispatch')
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - name: Checkout the commit that passed CI
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          version: 12.10.1
-          run_install: false
-      - uses: actions/setup-node@v4
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - name: Download checked documentation from CI
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          node-version: 24.21.0
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - name: Resolve GitHub Pages base
+          name: docs-site
+          path: ${{ runner.temp }}/i18n-docs
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      - name: Skip superseded commits
+        id: current
         shell: bash
-        env:
-          REPOSITORY: ${{ github.repository }}
         run: |
-          owner_name="${REPOSITORY%%/*}"
-          repository_name="${REPOSITORY#*/}"
-          if [[ "${repository_name,,}" == "${owner_name,,}.github.io" ]]; then
-            echo "DOCS_BASE=/" >> "$GITHUB_ENV"
+          tested_sha="$(git rev-parse HEAD)"
+          main_sha="$(git ls-remote origin refs/heads/main | cut -f 1)"
+          if [[ "$tested_sha" == "$main_sha" ]]; then
+            echo "latest=true" >> "$GITHUB_OUTPUT"
           else
-            echo "DOCS_BASE=/$repository_name/" >> "$GITHUB_ENV"
+            echo "latest=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Skipping $tested_sha because main has advanced to $main_sha."
           fi
-      - run: pnpm docs:build
-      - run: touch apps/docs/.vitepress/dist/.nojekyll
       - name: Publish to gh-pages branch
-        uses: peaceiris/actions-gh-pages@v3
+        if: steps.current.outputs.latest == 'true'
+        uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4.1.0
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ github.token }}
           publish_branch: gh-pages
-          publish_dir: apps/docs/.vitepress/dist
+          publish_dir: ${{ runner.temp }}/i18n-docs

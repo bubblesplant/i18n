@@ -24,7 +24,7 @@ const features = [
   },
   {
     icon: "tools",
-    title: "CLI：扫描项目 → JSON",
+    title: "命令行工具：扫描项目 → JSON",
     text: "sync 扫描静态 tr() 调用并同步 JSON；check 检查词条差异。同步时保留已有翻译，也可先预览。",
     link: "/guide/cli",
   },
@@ -61,7 +61,7 @@ const iconPaths: Record<string, string> = {
         <h1 id="bubbles-title">一套词条，接入<br />Vue 与 React。</h1>
         <p class="bubbles-tagline">
           核心管理语言状态，组件订阅变化。<br />
-          用 CLI 扫描项目，同步与检查 JSON 词条。
+          用命令行工具扫描项目，同步与检查 JSON 词条。
         </p>
         <div class="bubbles-actions">
           <a class="bubbles-button primary" :href="withBase('/guide/getting-started')">

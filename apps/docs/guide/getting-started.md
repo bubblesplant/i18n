@@ -4,14 +4,19 @@
 
 ## 选择你的接入方式
 
-| 场景                      | 安装命令                                              | 完整教程                    |
-| ------------------------- | ----------------------------------------------------- | --------------------------- |
-| Vue 3 应用                | `pnpm add @bubblesjs/i18n-core @bubblesjs/i18n-vue`   | [Vue 接入与使用](./vue)     |
-| React 应用                | `pnpm add @bubblesjs/i18n-core @bubblesjs/i18n-react` | [React 接入与使用](./react) |
-| 普通 JavaScript / Node.js | `pnpm add @bubblesjs/i18n-core`                       | [核心容器](./core)          |
-| 开发时维护语言包          | `pnpm add -D @bubblesjs/i18n-cli`                     | [CLI 使用](./cli)           |
+| 场景             | 安装命令                                              | 完整教程                    |
+| ---------------- | ----------------------------------------------------- | --------------------------- |
+| Vue 3 应用       | `pnpm add @bubblesjs/i18n-core @bubblesjs/i18n-vue`   | [Vue 接入与使用](./vue)     |
+| React 应用       | `pnpm add @bubblesjs/i18n-core @bubblesjs/i18n-react` | [React 接入与使用](./react) |
+| Node.js 后端     | `pnpm add @bubblesjs/i18n-core`                       | [Node.js / Hono](./node)    |
+| 普通 JavaScript  | `pnpm add @bubblesjs/i18n-core`                       | [核心容器](./core)          |
+| 开发时维护语言包 | `pnpm add -D @bubblesjs/i18n-cli`                     | [命令行工具](./cli)         |
 
 React 应用需提供 React `>=18.0.0` 和对应渲染器；Vue 应用需提供 Vue `^3.5.43`。CLI 要求 Node.js `>=22.18.0`。运行时与 CLI 可分别安装。
+
+## AI Skill
+
+使用 AI 编程助手接入 BubblesJS i18n、维护 JSON 与 Excel 翻译词条时，可以安装 `bubblesjs-i18n`，见 [Skill 安装与使用](./skill)。
 
 ## 准备语言 JSON
 

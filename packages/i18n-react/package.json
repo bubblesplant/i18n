@@ -2,7 +2,16 @@
   "name": "@bubblesjs/i18n-react",
   "version": "0.0.7",
   "description": "面向 React 的轻量国际化 Provider 和外部状态订阅 Hooks。",
+  "homepage": "https://bubblesplant.github.io/i18n/",
+  "bugs": {
+    "url": "https://github.com/bubblesplant/i18n/issues"
+  },
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bubblesplant/i18n.git",
+    "directory": "packages/i18n-react"
+  },
   "files": [
     "dist",
     "README.md",

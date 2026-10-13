@@ -1,0 +1,12 @@
+{
+  "extends": "../../../tsconfig/base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "lib": ["ES2022", "DOM"],
+    "paths": {
+      "@bubblesjs/i18n-cli": ["../../../packages/i18n-cli/src/index.ts"],
+      "@bubblesjs/i18n-core": ["../../../packages/i18n-core/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "tests/**/*.test.ts", "i18n.config.ts", "vite.config.ts"]
+}

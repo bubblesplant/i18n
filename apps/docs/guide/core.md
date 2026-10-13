@@ -137,6 +137,8 @@ const store = await initI18n({
 
 为每个请求创建独立容器，用 `await initI18n(...)` 预加载该请求的语言。客户端水合前提供相同的初始语言与词条。容器放在请求作用域中，避免不同用户共享可变状态。
 
+Node.js API 服务也可以按请求同步创建容器，并直接调用 `store.getState().tr()` 返回译文。请求头语言匹配、Hono 中间件和全局 / 局部路由示例见 [Node.js / Hono 后端](./node)。
+
 ## API 参考
 
 | 导出                                  | 用途                           |

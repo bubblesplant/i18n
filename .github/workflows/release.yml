@@ -1,57 +1,92 @@
 name: Release
 
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
-  workflow_dispatch:
 
 concurrency:
   group: release-main
   cancel-in-progress: false
 
-permissions:
-  contents: write
-  pull-requests: write
+permissions: {}
 
 jobs:
   release:
-    if: github.ref == 'refs/heads/main'
+    if: >-
+      github.repository == 'bubblesplant/i18n' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      (github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: write
+      pull-requests: write
     env:
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      HAS_NPM_TOKEN: ${{ secrets.NPM_TOKEN != '' }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout the commit that passed CI
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
-      - uses: pnpm/action-setup@v4
+          persist-credentials: false
+      - name: Install pnpm and Node.js 26
+        uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
         with:
-          version: 12.10.1
-          run_install: false
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24.21.0
-          cache: pnpm
-          registry-url: https://registry.npmjs.org
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm ready
+          runtime: node@26
+          cache: true
+          require-lockfile: true
+      - name: Skip superseded commits
+        id: current
+        shell: bash
+        run: |
+          tested_sha="$(git rev-parse HEAD)"
+          main_sha="$(git ls-remote origin refs/heads/main | cut -f 1)"
+          if [[ "$tested_sha" == "$main_sha" ]]; then
+            echo "latest=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "latest=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Skipping $tested_sha because main has advanced to $main_sha."
+          fi
+      - name: Configure npm authentication
+        if: steps.current.outputs.latest == 'true' && env.HAS_NPM_TOKEN == 'true'
+        shell: bash
+        run: |
+          printf '%s\n' '//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}' 'registry=https://registry.npmjs.org/' > "$RUNNER_TEMP/i18n-publish.npmrc"
+          echo "NPM_CONFIG_USERCONFIG=$RUNNER_TEMP/i18n-publish.npmrc" >> "$GITHUB_ENV"
       - name: Version packages or publish to npm
-        if: env.NPM_TOKEN != ''
-        uses: changesets/action@v1
+        if: steps.current.outputs.latest == 'true'
+        id: changesets
+        uses: changesets/action@22ccf9aa43179fe9e27dc62e575971d28cce197c # v2.0.0
         with:
-          publish: pnpm release
-          version: pnpm version-packages
-          commit: "chore(release): version packages"
-          title: "chore(release): version packages"
+          github-token: ${{ secrets.RELEASE_GITHUB_TOKEN || github.token }}
+          publish-script: ${{ env.HAS_NPM_TOKEN == 'true' && 'pnpm release:ci' || '' }}
+          version-script: pnpm version-packages
+          commit-message: "chore(release): version packages"
+          pr-title: "chore(release): version packages"
+          pr-base-branch: main
+          create-github-releases: true
+          push-git-tags: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      - name: Create version PR
-        if: env.NPM_TOKEN == ''
-        uses: changesets/action@v1
-        with:
-          version: pnpm version-packages
-          commit: "chore(release): version packages"
-          title: "chore(release): version packages"
+      - name: Report release result
+        if: steps.current.outputs.latest == 'true'
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBLISHED: ${{ steps.changesets.outputs.published }}
+          PR_NUMBER: ${{ steps.changesets.outputs.pr-number }}
+        run: |
+          if [[ "$HAS_NPM_TOKEN" != "true" ]]; then
+            echo "::notice::NPM_TOKEN is not configured. Only version PRs can be created; npm publishing is disabled."
+            echo "npm publishing is disabled because NPM_TOKEN is not configured." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "$PUBLISHED" == "true" ]]; then
+            echo "Packages were published to npm and GitHub releases were created." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ -n "$PR_NUMBER" ]]; then
+            echo "Version PR #$PR_NUMBER was created or updated. Merge it after CI passes to publish." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No unpublished package versions were found." >> "$GITHUB_STEP_SUMMARY"
+          fi

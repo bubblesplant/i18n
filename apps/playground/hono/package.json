@@ -1,0 +1,31 @@
+{
+  "name": "playground-hono",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vp dev",
+    "build": "vp pack",
+    "preview": "node dist/index.mjs",
+    "i18n:check": "bubbles-i18n check",
+    "i18n:export": "bubbles-i18n excel export",
+    "i18n:import": "bubbles-i18n excel import",
+    "i18n:sync": "bubbles-i18n sync",
+    "start": "node dist/index.mjs",
+    "test": "vp test run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@bubblesjs/i18n-core": "workspace:*",
+    "@hono/node-server": "catalog:",
+    "hono": "catalog:"
+  },
+  "devDependencies": {
+    "@bubblesjs/i18n-cli": "workspace:*",
+    "@hono/vite-dev-server": "catalog:",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
+  }
+}

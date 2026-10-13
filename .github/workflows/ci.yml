@@ -2,33 +2,80 @@ name: CI
 
 on:
   pull_request:
+    branches: [main]
   push:
     branches: [main]
+  workflow_dispatch:
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
   quality:
     name: Check and build (${{ matrix.os }})
+    permissions:
+      contents: read
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          version: 12.10.1
-          run_install: false
-      - uses: actions/setup-node@v4
+          persist-credentials: false
+      - name: Install pnpm and Node.js 26
+        uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
         with:
-          node-version: 24.21.0
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm ready
+          runtime: node@26
+          cache: true
+          require-lockfile: true
+      - name: Resolve GitHub Pages base
+        shell: bash
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          owner_name="${REPOSITORY%%/*}"
+          repository_name="${REPOSITORY#*/}"
+          if [[ "${repository_name,,}" == "${owner_name,,}.github.io" ]]; then
+            echo "DOCS_BASE=/" >> "$GITHUB_ENV"
+          else
+            echo "DOCS_BASE=/$repository_name/" >> "$GITHUB_ENV"
+          fi
+      - name: Check, build and verify packages
+        run: pnpm ready
+      - name: Upload checked documentation
+        if: >-
+          runner.os == 'Linux' &&
+          github.repository == 'bubblesplant/i18n' &&
+          github.ref == 'refs/heads/main' &&
+          (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: docs-site
+          path: apps/docs/.vitepress/dist
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
+
+  quality-passed:
+    name: CI Passed
+    needs: quality
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require every platform to pass
+        shell: bash
+        env:
+          QUALITY_RESULT: ${{ needs.quality.result }}
+        run: |
+          if [[ "$QUALITY_RESULT" != "success" ]]; then
+            echo "::error::Quality checks did not pass on every platform ($QUALITY_RESULT)."
+            exit 1
+          fi

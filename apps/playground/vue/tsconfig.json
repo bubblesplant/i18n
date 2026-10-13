@@ -1,0 +1,12 @@
+{
+  "extends": "../../../tsconfig/vue.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./src/*"],
+      "@bubblesjs/i18n-cli": ["../../../packages/i18n-cli/src/index.ts"],
+      "@bubblesjs/i18n-core": ["../../../packages/i18n-core/src/index.ts"],
+      "@bubblesjs/i18n-vue": ["../../../packages/i18n-vue/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.vue", "i18n.config.ts", "vite.config.ts", "uno.config.ts"]
+}

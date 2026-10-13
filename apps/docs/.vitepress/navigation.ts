@@ -5,10 +5,11 @@ export const guidePages = [
     link: "/guide/getting-started",
     sections: [
       ["安装与接入方式", "选择你的接入方式"],
+      ["AI Skill", "ai-skill"],
       ["准备语言包", "准备语言-json"],
       ["创建容器与切换语言", "创建容器与切换语言"],
       ["在框架中使用", "在-vue-react-中显示译文"],
-      ["CLI 词条维护", "用-cli-扫描项目并维护-json"],
+      ["命令行工具", "用-cli-扫描项目并维护-json"],
       ["本地开发", "在本仓库开发文档与示例"],
     ],
   },
@@ -18,7 +19,7 @@ export const guidePages = [
     sections: [
       ["完整流程", "先看完整流程"],
       ["扁平 JSON 词条", "词条为何使用扁平-json"],
-      ["CLI 源码扫描", "cli-如何把项目扫描成-json"],
+      ["命令行工具扫描源码", "cli-如何把项目扫描成-json"],
       ["翻译与语言切换", "core-如何翻译和切换语言"],
       ["框架组件更新", "react-与-vue-如何更新组件"],
       ["JSON 与 Excel 协作", "json-⇄-excel-如何协作"],
@@ -71,6 +72,20 @@ export const guidePages = [
     ],
   },
   {
+    text: "Node.js",
+    link: "/guide/node",
+    sections: [
+      ["安装与运行", "setup"],
+      ["请求语言", "request-language"],
+      ["语言包与容器", "catalogs"],
+      ["全局写法", "global"],
+      ["局部写法", "local"],
+      ["前端传语言", "frontend"],
+      ["接口与隔离验证", "verification"],
+      ["构建与启动", "build"],
+    ],
+  },
+  {
     text: "全局与局部",
     link: "/guide/scopes",
     sections: [
@@ -81,7 +96,7 @@ export const guidePages = [
     ],
   },
   {
-    text: "词条 CLI",
+    text: "命令行工具",
     link: "/guide/cli",
     sections: [
       ["核心流程", "核心流程与实现思路"],
@@ -94,6 +109,15 @@ export const guidePages = [
       ["扫描与 Excel 的边界", "扫描与-excel-的边界"],
       ["单元格格式与排查", "excel-cell-format"],
       ["编程 API", "编程-api"],
+    ],
+  },
+  {
+    text: "Skill",
+    link: "/guide/skill",
+    sections: [
+      ["安装", "安装"],
+      ["使用", "使用"],
+      ["相关资源", "相关资源"],
     ],
   },
 ] satisfies {

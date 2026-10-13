@@ -1,0 +1,13 @@
+{
+  "extends": "../../../tsconfig/vue.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@bubblesjs/i18n-cli": ["../../../packages/i18n-cli/src/index.ts"],
+      "@bubblesjs/i18n-core": ["../../../packages/i18n-core/src/index.ts"],
+      "@bubblesjs/i18n-react": ["../../../packages/i18n-react/src/index.tsx"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "i18n.config.ts", "vite.config.ts"]
+}
