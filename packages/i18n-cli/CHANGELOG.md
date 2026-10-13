@@ -1,5 +1,11 @@
 # @bubblesjs/i18n-cli
 
+## 0.0.7
+
+### Patch Changes
+
+- 517d0f4: md 文档格式
+
 ## 0.0.6
 
 ### Patch Changes

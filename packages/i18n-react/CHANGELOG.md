@@ -1,5 +1,13 @@
 # @bubblesjs/i18n-react
 
+## 0.0.7
+
+### Patch Changes
+
+- 517d0f4: md 文档格式
+- Updated dependencies [517d0f4]
+  - @bubblesjs/i18n-core@0.0.7
+
 ## 0.0.6
 
 ### Patch Changes
