@@ -1,5 +1,13 @@
 # @bubblesjs/i18n-vue
 
+## 0.0.9
+
+### Patch Changes
+
+- 7d06c67: cicd 发版测试
+- Updated dependencies [7d06c67]
+  - @bubblesjs/i18n-core@0.0.9
+
 ## 0.0.8
 
 ### Patch Changes

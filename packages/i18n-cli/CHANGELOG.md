@@ -1,5 +1,11 @@
 # @bubblesjs/i18n-cli
 
+## 0.0.9
+
+### Patch Changes
+
+- 7d06c67: cicd 发版测试
+
 ## 0.0.8
 
 ### Patch Changes
